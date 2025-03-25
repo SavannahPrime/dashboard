@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart, LineChart, PieChart } from '@/components/ui/chart';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Button } from '@/components/ui/button';
 import { 
   Select,
@@ -13,6 +13,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BarChart3, Activity, PieChart as PieChartIcon, CalendarRange, Download } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { BarChart, Bar, PieChart, Pie, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 
 const PerformanceAnalyticsSection: React.FC = () => {
   // Sample data for charts
@@ -34,36 +35,37 @@ const PerformanceAnalyticsSection: React.FC = () => {
     ],
   };
 
-  const departmentComparisonData = {
-    labels: ['Marketing', 'Sales', 'Development', 'Support', 'Content'],
-    datasets: [
-      {
-        label: 'Average Productivity Score',
-        data: [85, 78, 92, 81, 76],
-        backgroundColor: [
-          'rgba(99, 102, 241, 0.7)',
-          'rgba(34, 197, 94, 0.7)',
-          'rgba(245, 158, 11, 0.7)',
-          'rgba(239, 68, 68, 0.7)',
-          'rgba(16, 185, 129, 0.7)',
-        ],
-        borderWidth: 1,
-      },
-    ],
-  };
+  // Convert chart data to Recharts format
+  const rechartsEmployeePerformanceData = employeePerformanceData.labels.map((month, index) => ({
+    name: month,
+    'Tasks Completed': employeePerformanceData.datasets[0].data[index],
+    'On-time Completion Rate': employeePerformanceData.datasets[1].data[index],
+  }));
 
-  const productivityTrendsData = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-    datasets: [
-      {
-        label: 'Team Productivity',
-        data: [22, 19, 27, 23, 22, 24, 17, 25, 23, 24, 20, 19],
-        fill: false,
-        borderColor: 'rgb(99, 102, 241)',
-        tension: 0.1
-      }
-    ]
-  };
+  const departmentComparisonData = [
+    { name: 'Marketing', value: 85 },
+    { name: 'Sales', value: 78 },
+    { name: 'Development', value: 92 },
+    { name: 'Support', value: 81 },
+    { name: 'Content', value: 76 },
+  ];
+
+  const productivityTrendsData = [
+    { name: 'Jan', productivity: 22 },
+    { name: 'Feb', productivity: 19 },
+    { name: 'Mar', productivity: 27 },
+    { name: 'Apr', productivity: 23 },
+    { name: 'May', productivity: 22 },
+    { name: 'Jun', productivity: 24 },
+    { name: 'Jul', productivity: 17 },
+    { name: 'Aug', productivity: 25 },
+    { name: 'Sep', productivity: 23 },
+    { name: 'Oct', productivity: 24 },
+    { name: 'Nov', productivity: 20 },
+    { name: 'Dec', productivity: 19 },
+  ];
+
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
   return (
     <div className="space-y-6">
@@ -148,7 +150,19 @@ const PerformanceAnalyticsSection: React.FC = () => {
             <CardDescription>Task completion and on-time rates</CardDescription>
           </CardHeader>
           <CardContent>
-            <BarChart data={employeePerformanceData} className="h-[200px]" />
+            <div className="h-[200px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={rechartsEmployeePerformanceData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Bar dataKey="Tasks Completed" fill="rgba(99, 102, 241, 0.8)" />
+                  <Bar dataKey="On-time Completion Rate" fill="rgba(34, 197, 94, 0.8)" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -177,7 +191,16 @@ const PerformanceAnalyticsSection: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="h-[350px]">
-                <LineChart data={productivityTrendsData} />
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={productivityTrendsData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Line type="monotone" dataKey="productivity" name="Team Productivity" stroke="rgb(99, 102, 241)" strokeWidth={2} />
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
             </CardContent>
           </Card>
@@ -191,7 +214,20 @@ const PerformanceAnalyticsSection: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="h-[350px]">
-                <BarChart data={departmentComparisonData} />
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={departmentComparisonData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="value" name="Average Productivity Score" fill="#8884d8">
+                      {departmentComparisonData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             </CardContent>
           </Card>
@@ -205,7 +241,25 @@ const PerformanceAnalyticsSection: React.FC = () => {
             </CardHeader>
             <CardContent>
               <div className="h-[350px]">
-                <PieChart data={departmentComparisonData} />
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={departmentComparisonData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                      outerRadius={120}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {departmentComparisonData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
             </CardContent>
           </Card>
