@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
@@ -51,7 +50,7 @@ const AdminLogin: React.FC = () => {
     
     switch (role) {
       case 'admin':
-        email = 'freddieolesaruni@gmail.com';
+        email = 'admin@prime.com';
         password = 'PrimeAdmin@2024';
         break;
       case 'sales':
@@ -67,22 +66,22 @@ const AdminLogin: React.FC = () => {
     }
     
     try {
-      // First ensure the user exists in Supabase Auth
-      const { data: { user }, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-      
-      if (authError && !authError.message.includes('already registered')) {
-        throw authError;
-      }
-      
-      // Then perform login
+      // Directly perform login without checking email verification
       await login(email, password);
     } catch (error) {
       console.error('Demo login error:', error);
-      // We'll try normal login as the user might already exist
+      // If login fails, attempt to create the user and log in again
       try {
+        const { error: authError } = await supabase.auth.signUp({
+          email,
+          password,
+        });
+
+        if (authError && !authError.message.includes('already registered')) {
+          throw authError;
+        }
+
+        // Retry login after creating the user
         await login(email, password);
       } catch (secondError) {
         console.error('Second login attempt failed:', secondError);
