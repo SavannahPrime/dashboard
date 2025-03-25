@@ -16,7 +16,8 @@ import {
   Package, 
   LogOut, 
   ChevronLeft, 
-  ChevronRight 
+  ChevronRight,
+  UserCog
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -37,6 +38,12 @@ const AdminSidebar: React.FC = () => {
       name: 'User Management',
       path: '/admin/users',
       icon: Users,
+      showFor: ['super_admin', 'sales', 'support']
+    },
+    {
+      name: 'Employee Management',
+      path: '/admin/employees',
+      icon: UserCog,
       showFor: ['super_admin', 'sales', 'support']
     },
     {
