@@ -28,27 +28,30 @@ const AdminSidebar: React.FC = () => {
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
 
-  // Determine dashboard path based on role
-  const getDashboardPath = () => {
+  // Get base path based on role
+  const getBasePath = () => {
     if (currentAdmin?.role === 'sales') {
-      return '/admin/sales/dashboard';
+      return '/admin/sales';
     } else if (currentAdmin?.role === 'support') {
-      return '/admin/support/dashboard';
+      return '/admin/support';
     } else {
-      return '/admin/dashboard';
+      return '/admin';
     }
   };
 
+  const basePath = getBasePath();
+
+  // Define navigation items with conditional visibility based on role
   const navigationItems = [
     {
       name: 'Dashboard',
-      path: getDashboardPath(),
+      path: `${basePath}/dashboard`,
       icon: LayoutDashboard,
       showFor: ['super_admin', 'sales', 'support']
     },
     {
       name: 'User Management',
-      path: '/admin/users',
+      path: `${basePath}/users`,
       icon: Users,
       showFor: ['super_admin', 'sales', 'support']
     },
@@ -66,19 +69,19 @@ const AdminSidebar: React.FC = () => {
     },
     {
       name: 'Financial Overview',
-      path: '/admin/finance',
+      path: `${currentAdmin?.role === 'sales' ? '/admin/sales' : '/admin'}/finance`,
       icon: CreditCard,
       showFor: ['super_admin', 'sales']
     },
     {
       name: 'Communication Center',
-      path: '/admin/communications',
+      path: `${currentAdmin?.role === 'support' ? '/admin/support' : '/admin'}/communications`,
       icon: MessageSquare,
       showFor: ['super_admin', 'support']
     },
     {
       name: 'Analytics & Reports',
-      path: '/admin/analytics',
+      path: `${currentAdmin?.role === 'sales' ? '/admin/sales' : '/admin'}/analytics`,
       icon: FileBarChart,
       showFor: ['super_admin', 'sales']
     },

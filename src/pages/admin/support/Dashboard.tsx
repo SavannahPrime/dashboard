@@ -1,425 +1,415 @@
 
-import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import React, { useEffect } from 'react';
+import { useAdminAuth } from '@/contexts/AdminAuthContext';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { 
-  MessageSquare, 
-  Clock, 
-  ThumbsUp, 
-  AlertCircle, 
-  Search, 
-  CheckCircle, 
-  XCircle, 
-  Clock as ClockIcon, 
-  Users, 
-  Filter, 
-  Download, 
-  UserCheck, 
-  Loader2, 
-  ArrowUpRight, 
-  ArrowDownRight,
-  Eye
-} from 'lucide-react';
+import { MessageSquare, Clock, CheckCircle, AlertCircle, ArrowUpRight, ArrowDownRight, Users } from 'lucide-react';
+import { LineChart, Line, BarChart, Bar, PieChart, Pie, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-// Sample ticket data
-const ticketData = [
-  { 
-    id: 'TICKET-1234', 
-    subject: 'Login issues with dashboard', 
-    client: {
-      name: 'John Smith',
-      email: 'john@example.com',
-      avatar: 'https://ui-avatars.com/api/?name=John+Smith'
-    },
-    status: 'open', 
-    priority: 'high', 
-    createdAt: '2023-11-24T09:30:00Z', 
-    updatedAt: '2023-11-24T14:30:00Z',
-    category: 'Technical',
-    assignedTo: 'Support Team'
-  },
-  { 
-    id: 'TICKET-1235', 
-    subject: 'Billing discrepancy on monthly invoice', 
-    client: {
-      name: 'Sarah Johnson',
-      email: 'sarah@example.com',
-      avatar: 'https://ui-avatars.com/api/?name=Sarah+Johnson'
-    },
-    status: 'in-progress', 
-    priority: 'medium', 
-    createdAt: '2023-11-23T12:15:00Z', 
-    updatedAt: '2023-11-24T11:20:00Z',
-    category: 'Billing',
-    assignedTo: 'Finance Team'
-  },
-  { 
-    id: 'TICKET-1236', 
-    subject: 'Request for additional SEO services', 
-    client: {
-      name: 'Michael Chen',
-      email: 'michael@example.com',
-      avatar: 'https://ui-avatars.com/api/?name=Michael+Chen'
-    },
-    status: 'waiting', 
-    priority: 'low', 
-    createdAt: '2023-11-22T15:45:00Z', 
-    updatedAt: '2023-11-23T10:30:00Z',
-    category: 'Sales',
-    assignedTo: 'Sales Team'
-  },
-  { 
-    id: 'TICKET-1237', 
-    subject: 'Website displaying incorrectly on mobile', 
-    client: {
-      name: 'Emily Davis',
-      email: 'emily@example.com',
-      avatar: 'https://ui-avatars.com/api/?name=Emily+Davis'
-    },
-    status: 'open', 
-    priority: 'high', 
-    createdAt: '2023-11-21T08:20:00Z', 
-    updatedAt: '2023-11-22T09:15:00Z',
-    category: 'Technical',
-    assignedTo: 'Dev Team'
-  },
-  { 
-    id: 'TICKET-1238', 
-    subject: 'Social media campaign not started on time', 
-    client: {
-      name: 'David Wilson',
-      email: 'david@example.com',
-      avatar: 'https://ui-avatars.com/api/?name=David+Wilson'
-    },
-    status: 'closed', 
-    priority: 'medium', 
-    createdAt: '2023-11-20T14:10:00Z', 
-    updatedAt: '2023-11-21T16:45:00Z',
-    category: 'Marketing',
-    assignedTo: 'Marketing Team'
-  },
+// Sample data for charts
+const weeklyTicketsData = [
+  { name: 'Mon', tickets: 12 },
+  { name: 'Tue', tickets: 19 },
+  { name: 'Wed', tickets: 15 },
+  { name: 'Thu', tickets: 22 },
+  { name: 'Fri', tickets: 18 },
+  { name: 'Sat', tickets: 8 },
+  { name: 'Sun', tickets: 5 }
 ];
 
-// Sample performance data
-const performanceData = [
-  { day: 'Mon', resolved: 12, new: 8 },
-  { day: 'Tue', resolved: 15, new: 10 },
-  { day: 'Wed', resolved: 18, new: 12 },
-  { day: 'Thu', resolved: 14, new: 9 },
-  { day: 'Fri', resolved: 20, new: 15 },
-  { day: 'Sat', resolved: 8, new: 6 },
-  { day: 'Sun', resolved: 5, new: 4 },
+const ticketCategoriesData = [
+  { name: 'Technical Issue', value: 42 },
+  { name: 'Billing', value: 28 },
+  { name: 'Feature Request', value: 15 },
+  { name: 'General Question', value: 10 },
+  { name: 'Complaint', value: 5 }
 ];
 
-// Sample response time data
 const responseTimeData = [
-  { month: 'Jan', time: 4.2 },
-  { month: 'Feb', time: 3.8 },
-  { month: 'Mar', time: 3.5 },
-  { month: 'Apr', time: 3.2 },
-  { month: 'May', time: 2.9 },
-  { month: 'Jun', time: 2.5 },
+  { name: 'Week 1', responseTime: 5.2 },
+  { name: 'Week 2', responseTime: 4.8 },
+  { name: 'Week 3', responseTime: 3.9 },
+  { name: 'Week 4', responseTime: 2.5 }
+];
+
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
+
+// Sample tickets data
+const activeTickets = [
+  {
+    id: 'T-1234',
+    client: 'Sarah Johnson',
+    subject: 'Login issue after password reset',
+    priority: 'high',
+    status: 'open',
+    created: '2023-11-23T14:30:00Z'
+  },
+  {
+    id: 'T-1235',
+    client: 'Michael Brown',
+    subject: 'Question about billing cycle',
+    priority: 'medium',
+    status: 'in-progress',
+    created: '2023-11-22T09:15:00Z'
+  },
+  {
+    id: 'T-1236',
+    client: 'Emily Davis',
+    subject: 'Feature request: dark mode',
+    priority: 'low',
+    status: 'open',
+    created: '2023-11-21T16:45:00Z'
+  },
+  {
+    id: 'T-1237',
+    client: 'David Wilson',
+    subject: 'Website loading slowly',
+    priority: 'high',
+    status: 'in-progress',
+    created: '2023-11-24T11:20:00Z'
+  }
 ];
 
 const SupportDashboard: React.FC = () => {
-  const [tickets, setTickets] = useState(ticketData);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [priorityFilter, setStatusPriority] = useState('all');
+  const { currentAdmin } = useAdminAuth();
   
-  // Filter tickets based on search and filters
-  const filteredTickets = tickets.filter(ticket => {
-    const matchesSearch = ticket.subject.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         ticket.client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         ticket.id.toLowerCase().includes(searchQuery.toLowerCase());
+  useEffect(() => {
+    // Store visit analytics in Supabase
+    const logDashboardVisit = async () => {
+      try {
+        if (currentAdmin) {
+          await supabase.from('analytics').insert({
+            type: 'dashboard_visit',
+            data: {
+              dashboard: 'support',
+              admin_id: currentAdmin.id,
+              admin_role: currentAdmin.role
+            },
+            period: 'daily'
+          });
+        }
+      } catch (error) {
+        console.error('Error logging dashboard visit:', error);
+      }
+    };
     
-    const matchesStatus = statusFilter === 'all' || ticket.status === statusFilter;
-    const matchesPriority = priorityFilter === 'all' || ticket.priority === priorityFilter;
-    
-    return matchesSearch && matchesStatus && matchesPriority;
-  });
+    logDashboardVisit();
+  }, [currentAdmin]);
   
-  const handleImpersonateClient = () => {
-    toast.info('Impersonation mode would connect to Supabase to grant temporary access');
+  const handleTicketAction = (ticketId: string, action: string) => {
+    toast.success(`Ticket ${ticketId} ${action} successfully`);
+  };
+  
+  const getPriorityBadgeClass = (priority: string) => {
+    switch (priority) {
+      case 'high':
+        return 'bg-red-100 text-red-800';
+      case 'medium':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'low':
+        return 'bg-green-100 text-green-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+  
+  const getStatusBadgeClass = (status: string) => {
+    switch (status) {
+      case 'open':
+        return 'bg-blue-100 text-blue-800';
+      case 'in-progress':
+        return 'bg-purple-100 text-purple-800';
+      case 'resolved':
+        return 'bg-green-100 text-green-800';
+      case 'closed':
+        return 'bg-gray-100 text-gray-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
   };
   
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleString();
-  };
-  
-  const getStatusBadgeVariant = (status: string) => {
-    switch(status) {
-      case 'open': return 'destructive';
-      case 'in-progress': return 'default';
-      case 'waiting': return 'warning';
-      case 'closed': return 'outline';
-      default: return 'secondary';
+    const now = new Date();
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+    
+    if (diffInHours < 24) {
+      return `${diffInHours} hour${diffInHours !== 1 ? 's' : ''} ago`;
+    } else {
+      const diffInDays = Math.floor(diffInHours / 24);
+      return `${diffInDays} day${diffInDays !== 1 ? 's' : ''} ago`;
     }
-  };
-  
-  const getStatusBadgeIcon = (status: string) => {
-    switch(status) {
-      case 'open': return <AlertCircle className="h-3 w-3 mr-1" />;
-      case 'in-progress': return <Loader2 className="h-3 w-3 mr-1" />;
-      case 'waiting': return <Clock className="h-3 w-3 mr-1" />;
-      case 'closed': return <CheckCircle className="h-3 w-3 mr-1" />;
-      default: return null;
-    }
-  };
-  
-  const getPriorityBadgeVariant = (priority: string) => {
-    switch(priority) {
-      case 'high': return 'destructive';
-      case 'medium': return 'warning';
-      case 'low': return 'secondary';
-      default: return 'outline';
-    }
-  };
-  
-  const exportReport = () => {
-    toast.info('Exporting support report...');
-    // In a real app, this would connect to Supabase to generate and download a report
   };
   
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Support Dashboard</h1>
-          <p className="text-muted-foreground">
-            Ticket management and customer support metrics
-          </p>
-        </div>
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold tracking-tight">Support Dashboard</h1>
+        <p className="text-muted-foreground">
+          Welcome, <span className="font-medium">{currentAdmin?.name}</span>
+        </p>
+      </div>
+      
+      <Tabs defaultValue="overview" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="tickets">Active Tickets</TabsTrigger>
+          <TabsTrigger value="performance">Performance</TabsTrigger>
+        </TabsList>
         
-        <Button onClick={exportReport} variant="outline">
-          <Download className="mr-2 h-4 w-4" />
-          Export Report
-        </Button>
-      </div>
-      
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Open Tickets</CardTitle>
-            <AlertCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">23</div>
-            <div className="flex items-center pt-1">
-              <ArrowUpRight className="mr-1 h-4 w-4 text-destructive" />
-              <span className="text-xs text-destructive font-medium">+5</span>
-              <span className="text-xs text-muted-foreground ml-1">from yesterday</span>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Resolved Today</CardTitle>
-            <CheckCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">18</div>
-            <div className="flex items-center pt-1">
-              <ArrowUpRight className="mr-1 h-4 w-4 text-green-500" />
-              <span className="text-xs text-green-500 font-medium">+3</span>
-              <span className="text-xs text-muted-foreground ml-1">from yesterday</span>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg. Response Time</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">2.5 hrs</div>
-            <div className="flex items-center pt-1">
-              <ArrowDownRight className="mr-1 h-4 w-4 text-green-500" />
-              <span className="text-xs text-green-500 font-medium">-0.3 hrs</span>
-              <span className="text-xs text-muted-foreground ml-1">from last week</span>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Satisfaction Rate</CardTitle>
-            <ThumbsUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">94%</div>
-            <div className="flex items-center pt-1">
-              <ArrowUpRight className="mr-1 h-4 w-4 text-green-500" />
-              <span className="text-xs text-green-500 font-medium">+2%</span>
-              <span className="text-xs text-muted-foreground ml-1">from last month</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-      
-      <div className="grid gap-4 md:grid-cols-7">
-        <Card className="md:col-span-4">
-          <CardHeader>
-            <CardTitle>Ticket Resolution vs. New Tickets</CardTitle>
-            <CardDescription>Daily ticket activity for the past week</CardDescription>
-          </CardHeader>
-          <CardContent className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={performanceData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="day" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="resolved" fill="#4CAF50" name="Resolved Tickets" />
-                <Bar dataKey="new" fill="#2196F3" name="New Tickets" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-        
-        <Card className="md:col-span-3">
-          <CardHeader>
-            <CardTitle>Average Response Time</CardTitle>
-            <CardDescription>Monthly trend (in hours)</CardDescription>
-          </CardHeader>
-          <CardContent className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={responseTimeData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Line type="monotone" dataKey="time" stroke="#FF9800" name="Response Time (hrs)" />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-      
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-            <div>
-              <CardTitle>Support Tickets</CardTitle>
-              <CardDescription>Manage and respond to client support requests</CardDescription>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input 
-                  type="search" 
-                  placeholder="Search tickets..." 
-                  className="pl-8 w-full" 
-                  value={searchQuery} 
-                  onChange={(e) => setSearchQuery(e.target.value)} 
-                />
+        <TabsContent value="overview" className="space-y-6">
+          {/* Stats Cards */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Open Tickets</CardTitle>
+                <AlertCircle className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">24</div>
+                <div className="flex items-center text-xs text-muted-foreground mt-1">
+                  <ArrowUpRight className="mr-1 h-4 w-4 text-red-500" />
+                  <span className="text-red-500 font-medium">+12.5%</span> from last week
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Avg. Response Time</CardTitle>
+                <Clock className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">2.5h</div>
+                <div className="flex items-center text-xs text-muted-foreground mt-1">
+                  <ArrowDownRight className="mr-1 h-4 w-4 text-green-500" />
+                  <span className="text-green-500 font-medium">-35.8%</span> from last week
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Solved Tickets</CardTitle>
+                <CheckCircle className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">87</div>
+                <div className="flex items-center text-xs text-muted-foreground mt-1">
+                  <ArrowUpRight className="mr-1 h-4 w-4 text-green-500" />
+                  <span className="text-green-500 font-medium">+8.2%</span> from last week
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Satisfaction Rate</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">92%</div>
+                <div className="flex items-center text-xs text-muted-foreground mt-1">
+                  <ArrowUpRight className="mr-1 h-4 w-4 text-green-500" />
+                  <span className="text-green-500 font-medium">+2.1%</span> from last week
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          
+          {/* Charts */}
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card className="col-span-1">
+              <CardHeader>
+                <CardTitle>Ticket Categories</CardTitle>
+                <CardDescription>
+                  Distribution of tickets by category
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={ticketCategoriesData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {ticketCategoriesData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+            
+            <Card className="col-span-1">
+              <CardHeader>
+                <CardTitle>Weekly Tickets</CardTitle>
+                <CardDescription>
+                  Number of tickets created each day
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-6">
+                <div className="h-80">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={weeklyTicketsData}
+                      margin={{
+                        top: 5,
+                        right: 30,
+                        left: 20,
+                        bottom: 5,
+                      }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="tickets" fill="#2c5cc5" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          
+          {/* Response Time Chart */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Response Time Trend</CardTitle>
+              <CardDescription>
+                Average response time in hours per week
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={responseTimeData}
+                    margin={{
+                      top: 5,
+                      right: 30,
+                      left: 20,
+                      bottom: 5,
+                    }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip formatter={(value) => [`${value} hours`, 'Response Time']} />
+                    <Legend />
+                    <Line type="monotone" dataKey="responseTime" stroke="#8884d8" activeDot={{ r: 8 }} />
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
-              
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[130px]">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="open">Open</SelectItem>
-                  <SelectItem value="in-progress">In Progress</SelectItem>
-                  <SelectItem value="waiting">Waiting</SelectItem>
-                  <SelectItem value="closed">Closed</SelectItem>
-                </SelectContent>
-              </Select>
-              
-              <Select value={priorityFilter} onValueChange={setStatusPriority}>
-                <SelectTrigger className="w-[130px]">
-                  <SelectValue placeholder="Priority" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Priority</SelectItem>
-                  <SelectItem value="high">High</SelectItem>
-                  <SelectItem value="medium">Medium</SelectItem>
-                  <SelectItem value="low">Low</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Ticket ID</TableHead>
-                <TableHead>Subject</TableHead>
-                <TableHead>Client</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Priority</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredTickets.map(ticket => (
-                <TableRow key={ticket.id}>
-                  <TableCell className="font-medium">{ticket.id}</TableCell>
-                  <TableCell>{ticket.subject}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Avatar className="h-6 w-6">
-                        <AvatarImage src={ticket.client.avatar} alt={ticket.client.name} />
-                        <AvatarFallback>{ticket.client.name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <span>{ticket.client.name}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusBadgeVariant(ticket.status)} className="flex items-center w-fit">
-                      {getStatusBadgeIcon(ticket.status)}
-                      {ticket.status === 'in-progress' ? 'In Progress' : ticket.status.charAt(0).toUpperCase() + ticket.status.slice(1)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={getPriorityBadgeVariant(ticket.priority)}>
-                      {ticket.priority.charAt(0).toUpperCase() + ticket.priority.slice(1)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{formatDate(ticket.createdAt)}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm">
-                        <MessageSquare className="h-4 w-4 mr-2" />
-                        Reply
-                      </Button>
-                      <Button variant="outline" size="icon" title="Impersonate Client" onClick={handleImpersonateClient}>
-                        <UserCheck className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="icon" title="View Details">
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-        <CardFooter className="flex justify-between">
-          <div className="text-sm text-muted-foreground">
-            Showing {filteredTickets.length} of {tickets.length} tickets
-          </div>
-          <div className="flex gap-1">
-            <Button variant="outline" size="sm" disabled>Previous</Button>
-            <Button variant="outline" size="sm" disabled>Next</Button>
-          </div>
-        </CardFooter>
-      </Card>
+            </CardContent>
+          </Card>
+          
+          {/* Active Tickets */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Active Tickets</CardTitle>
+              <CardDescription>
+                Top priority tickets that need attention
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-auto max-h-[400px]">
+                <table className="w-full">
+                  <thead>
+                    <tr className="text-left text-xs text-muted-foreground">
+                      <th className="pb-3 font-medium">ID</th>
+                      <th className="pb-3 font-medium">Client</th>
+                      <th className="pb-3 font-medium">Subject</th>
+                      <th className="pb-3 font-medium">Priority</th>
+                      <th className="pb-3 font-medium">Status</th>
+                      <th className="pb-3 font-medium">Created</th>
+                      <th className="pb-3 font-medium">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeTickets.map(ticket => (
+                      <tr key={ticket.id} className="border-t border-border hover:bg-muted/50">
+                        <td className="py-3 font-medium">{ticket.id}</td>
+                        <td className="py-3">{ticket.client}</td>
+                        <td className="py-3 max-w-[200px] truncate">{ticket.subject}</td>
+                        <td className="py-3">
+                          <span className={`px-2 py-1 ${getPriorityBadgeClass(ticket.priority)} rounded-full text-xs`}>
+                            {ticket.priority.charAt(0).toUpperCase() + ticket.priority.slice(1)}
+                          </span>
+                        </td>
+                        <td className="py-3">
+                          <span className={`px-2 py-1 ${getStatusBadgeClass(ticket.status)} rounded-full text-xs`}>
+                            {ticket.status.replace('-', ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                          </span>
+                        </td>
+                        <td className="py-3 text-muted-foreground text-sm">{formatDate(ticket.created)}</td>
+                        <td className="py-3">
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={() => handleTicketAction(ticket.id, 'viewed')} 
+                              className="text-primary text-sm hover:underline"
+                            >
+                              View
+                            </button>
+                            <button 
+                              onClick={() => handleTicketAction(ticket.id, ticket.status === 'open' ? 'assigned' : 'resolved')} 
+                              className="text-primary text-sm hover:underline"
+                            >
+                              {ticket.status === 'open' ? 'Assign' : 'Resolve'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="tickets">
+          <Card>
+            <CardHeader>
+              <CardTitle>Active Tickets Management</CardTitle>
+              <CardDescription>
+                This tab will contain detailed ticket management tools.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p>Ticket management content will be displayed here.</p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="performance">
+          <Card>
+            <CardHeader>
+              <CardTitle>Support Performance</CardTitle>
+              <CardDescription>
+                This tab will contain support team performance metrics.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p>Performance metrics content will be displayed here.</p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
