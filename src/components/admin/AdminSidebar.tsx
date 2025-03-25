@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -25,12 +25,24 @@ import { useState } from 'react';
 const AdminSidebar: React.FC = () => {
   const { currentAdmin, logout } = useAdminAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
+
+  // Determine dashboard path based on role
+  const getDashboardPath = () => {
+    if (currentAdmin?.role === 'sales') {
+      return '/admin/sales/dashboard';
+    } else if (currentAdmin?.role === 'support') {
+      return '/admin/support/dashboard';
+    } else {
+      return '/admin/dashboard';
+    }
+  };
 
   const navigationItems = [
     {
       name: 'Dashboard',
-      path: '/admin/dashboard',
+      path: getDashboardPath(),
       icon: LayoutDashboard,
       showFor: ['super_admin', 'sales', 'support']
     },
@@ -44,7 +56,7 @@ const AdminSidebar: React.FC = () => {
       name: 'Employee Management',
       path: '/admin/employees',
       icon: UserCog,
-      showFor: ['super_admin', 'sales', 'support']
+      showFor: ['super_admin']
     },
     {
       name: 'Service Configuration',
@@ -82,6 +94,11 @@ const AdminSidebar: React.FC = () => {
   const filteredNavigationItems = navigationItems.filter(item => 
     item.showFor.includes(currentAdmin?.role || '')
   );
+
+  const handleLogout = () => {
+    logout();
+    navigate('/admin/login');
+  };
 
   return (
     <aside 
@@ -122,7 +139,9 @@ const AdminSidebar: React.FC = () => {
             </div>
             <div className="overflow-hidden">
               <p className="font-medium truncate">{currentAdmin?.name}</p>
-              <p className="text-xs text-muted-foreground truncate">{currentAdmin?.role.replace('_', ' ')}</p>
+              <p className="text-xs text-muted-foreground truncate capitalize">
+                {currentAdmin?.role.replace('_', ' ')}
+              </p>
             </div>
           </div>
         )}
@@ -167,7 +186,7 @@ const AdminSidebar: React.FC = () => {
             "w-full flex items-center gap-3", 
             collapsed ? "justify-center" : "justify-start"
           )}
-          onClick={logout}
+          onClick={handleLogout}
         >
           <LogOut className="h-5 w-5" />
           {!collapsed && <span>Log Out</span>}

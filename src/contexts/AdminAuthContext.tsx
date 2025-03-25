@@ -1,6 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from 'sonner';
+import { createClient } from '@supabase/supabase-js';
 
 export type AdminRole = 'super_admin' | 'sales' | 'support';
 
@@ -58,52 +59,99 @@ const sampleAdmins: AdminUser[] = [
 
 const STORAGE_KEY = 'savannah_prime_admin';
 
+// Initialize Supabase client - in a real app you would use actual credentials
+// For demo purposes, we'll continue using localStorage but structure the code for Supabase integration
+let supabase: any = null;
+try {
+  // For future Supabase implementation
+  // This would use actual API keys in production
+  // supabase = createClient('https://your-supabase-url.supabase.co', 'your-anon-key');
+} catch (error) {
+  console.error('Error initializing Supabase client', error);
+}
+
 export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentAdmin, setCurrentAdmin] = useState<AdminUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // Check for stored admin on initial load
-    const storedAdmin = localStorage.getItem(STORAGE_KEY);
-    if (storedAdmin) {
-      setCurrentAdmin(JSON.parse(storedAdmin));
-    }
-    setIsLoading(false);
+    // In a real Supabase implementation, this would verify the session
+    const checkAuth = async () => {
+      setIsLoading(true);
+      
+      try {
+        if (supabase) {
+          // For future Supabase implementation
+          // const { data: { session }, error } = await supabase.auth.getSession();
+          // if (session) {
+          //   // Fetch user profile from Supabase
+          //   const { data, error } = await supabase.from('admin_users').select('*').eq('id', session.user.id).single();
+          //   if (data) setCurrentAdmin(data);
+          // }
+        } else {
+          // Fallback to localStorage for demo
+          const storedAdmin = localStorage.getItem(STORAGE_KEY);
+          if (storedAdmin) {
+            setCurrentAdmin(JSON.parse(storedAdmin));
+          }
+        }
+      } catch (error) {
+        console.error('Error checking auth:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    checkAuth();
   }, []);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // Check admin credentials
-      if (email === 'admin@prime.com' && password === 'PrimeAdmin@2024') {
-        const admin = sampleAdmins.find(u => u.email === email) || null;
-        setCurrentAdmin(admin);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(admin));
-        toast.success('Welcome back, Super Admin!');
-        return;
+      if (supabase) {
+        // For future Supabase implementation
+        // const { data: { session }, error } = await supabase.auth.signInWithPassword({ email, password });
+        // if (error) throw error;
+        // 
+        // // Fetch user profile from Supabase
+        // const { data, error: profileError } = await supabase.from('admin_users').select('*').eq('id', session.user.id).single();
+        // if (profileError) throw profileError;
+        // 
+        // setCurrentAdmin(data);
+        // localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      } else {
+        // Simulate API call delay
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
+        // Check admin credentials
+        if (email === 'admin@prime.com' && password === 'PrimeAdmin@2024') {
+          const admin = sampleAdmins.find(u => u.email === email) || null;
+          setCurrentAdmin(admin);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(admin));
+          toast.success('Welcome back, Super Admin!');
+          return;
+        }
+        
+        if (email === 'sales@prime.com' && password === 'PrimeSales@2024') {
+          const admin = sampleAdmins.find(u => u.email === email) || null;
+          setCurrentAdmin(admin);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(admin));
+          toast.success('Welcome back, Sales Account!');
+          return;
+        }
+        
+        if (email === 'support@prime.com' && password === 'PrimeSupport@2024') {
+          const admin = sampleAdmins.find(u => u.email === email) || null;
+          setCurrentAdmin(admin);
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(admin));
+          toast.success('Welcome back, Support Staff!');
+          return;
+        }
+        
+        throw new Error('Invalid credentials');
       }
-      
-      if (email === 'sales@prime.com' && password === 'PrimeSales@2024') {
-        const admin = sampleAdmins.find(u => u.email === email) || null;
-        setCurrentAdmin(admin);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(admin));
-        toast.success('Welcome back, Sales Account!');
-        return;
-      }
-      
-      if (email === 'support@prime.com' && password === 'PrimeSupport@2024') {
-        const admin = sampleAdmins.find(u => u.email === email) || null;
-        setCurrentAdmin(admin);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(admin));
-        toast.success('Welcome back, Support Staff!');
-        return;
-      }
-      
-      throw new Error('Invalid credentials');
     } catch (error) {
       toast.error('Invalid email or password');
       throw error;
@@ -113,6 +161,11 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const logout = () => {
+    if (supabase) {
+      // For future Supabase implementation
+      // supabase.auth.signOut();
+    }
+    
     setCurrentAdmin(null);
     localStorage.removeItem(STORAGE_KEY);
     toast.info('You have been logged out');
@@ -121,13 +174,19 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const resetPassword = async (email: string) => {
     setIsLoading(true);
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
-      // Check if admin exists
-      const adminExists = sampleAdmins.some(u => u.email === email);
-      if (!adminExists) {
-        throw new Error('No admin account found with this email');
+      if (supabase) {
+        // For future Supabase implementation
+        // const { error } = await supabase.auth.resetPasswordForEmail(email);
+        // if (error) throw error;
+      } else {
+        // Simulate API call delay
+        await new Promise(resolve => setTimeout(resolve, 800));
+        
+        // Check if admin exists
+        const adminExists = sampleAdmins.some(u => u.email === email);
+        if (!adminExists) {
+          throw new Error('No admin account found with this email');
+        }
       }
       
       // In a real app, we would send a password reset email

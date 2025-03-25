@@ -1,6 +1,6 @@
 
-import React from 'react';
-import { Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,7 +16,8 @@ type FormValues = {
 };
 
 const AdminLogin: React.FC = () => {
-  const { isAuthenticated, isLoading, login } = useAdminAuth();
+  const { isAuthenticated, isLoading, login, currentAdmin } = useAdminAuth();
+  const navigate = useNavigate();
   
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<FormValues>();
   
@@ -29,9 +30,30 @@ const AdminLogin: React.FC = () => {
     }
   };
   
-  // Redirect if already authenticated
-  if (isAuthenticated && !isLoading) {
-    return <Navigate to="/admin/dashboard" replace />;
+  // Effect to redirect based on role after successful login
+  useEffect(() => {
+    if (isAuthenticated && !isLoading && currentAdmin) {
+      // Redirect to role-specific dashboard
+      if (currentAdmin.role === 'sales') {
+        navigate('/admin/sales/dashboard', { replace: true });
+      } else if (currentAdmin.role === 'support') {
+        navigate('/admin/support/dashboard', { replace: true });
+      } else {
+        navigate('/admin/dashboard', { replace: true });
+      }
+    }
+  }, [isAuthenticated, isLoading, currentAdmin, navigate]);
+  
+  // Show loading state while redirection is in progress
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
   }
   
   return (
@@ -90,6 +112,14 @@ const AdminLogin: React.FC = () => {
                 {errors.password && (
                   <p className="text-sm text-destructive">{errors.password.message}</p>
                 )}
+              </div>
+              <div className="text-sm bg-muted p-3 rounded-md">
+                <p className="font-medium mb-1">Sample Credentials</p>
+                <ul className="space-y-1 text-muted-foreground">
+                  <li><span className="font-medium">Super Admin:</span> admin@prime.com / PrimeAdmin@2024</li>
+                  <li><span className="font-medium">Sales:</span> sales@prime.com / PrimeSales@2024</li>
+                  <li><span className="font-medium">Support:</span> support@prime.com / PrimeSupport@2024</li>
+                </ul>
               </div>
             </CardContent>
             <CardFooter className="flex-col space-y-4">

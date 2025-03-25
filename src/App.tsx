@@ -1,8 +1,9 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
 import { AuthProvider } from "./contexts/AuthContext";
 import { AdminAuthProvider } from "./contexts/AdminAuthContext";
@@ -25,6 +26,13 @@ import AdminLayout from "./pages/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/Dashboard";
 import UserManagement from "./pages/admin/UserManagement";
 import EmployeeManagement from "./pages/admin/EmployeeManagement";
+import AdminAnalytics from "./pages/admin/Analytics";
+import AdminFinance from "./pages/admin/Finance";
+import AdminServices from "./pages/admin/Services";
+import AdminCommunications from "./pages/admin/Communications";
+import AdminSettings from "./pages/admin/Settings";
+import SalesDashboard from "./pages/admin/sales/Dashboard";
+import SupportDashboard from "./pages/admin/support/Dashboard";
 
 const queryClient = new QueryClient();
 
@@ -56,11 +64,26 @@ const App = () => (
                 {/* Admin Routes */}
                 <Route path="/admin/login" element={<AdminLogin />} />
                 <Route path="/admin" element={<AdminLayout />}>
-                  <Route index element={<AdminDashboard />} />
+                  <Route index element={<Navigate to="/admin/dashboard" replace />} />
                   <Route path="dashboard" element={<AdminDashboard />} />
                   <Route path="users" element={<UserManagement />} />
                   <Route path="employees" element={<EmployeeManagement />} />
-                  {/* Other admin routes will be added here */}
+                  <Route path="analytics" element={<AdminAnalytics />} />
+                  <Route path="finance" element={<AdminFinance />} />
+                  <Route path="services" element={<AdminServices />} />
+                  <Route path="communications" element={<AdminCommunications />} />
+                  <Route path="settings" element={<AdminSettings />} />
+                </Route>
+
+                {/* Role-specific Admin Dashboards */}
+                <Route path="/admin/sales" element={<AdminLayout />}>
+                  <Route index element={<SalesDashboard />} />
+                  <Route path="dashboard" element={<SalesDashboard />} />
+                </Route>
+                
+                <Route path="/admin/support" element={<AdminLayout />}>
+                  <Route index element={<SupportDashboard />} />
+                  <Route path="dashboard" element={<SupportDashboard />} />
                 </Route>
                 
                 {/* Catch All */}
