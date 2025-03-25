@@ -1,10 +1,8 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
-import { Session, User } from '@supabase/supabase-js';
 
-export interface ClientUser {
+export interface User {
   id: string;
   email: string;
   name: string;
@@ -16,204 +14,84 @@ export interface ClientUser {
 }
 
 interface AuthContextType {
-  currentUser: ClientUser | null;
+  currentUser: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string, services: string[]) => Promise<void>;
   logout: () => void;
   resetPassword: (email: string) => Promise<void>;
-  updateUser: (userData: Partial<ClientUser>) => void;
+  updateUser: (userData: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Sample users for demo
+const sampleUsers: User[] = [
+  {
+    id: '1',
+    email: 'admin@example.com',
+    name: 'Admin User',
+    role: 'admin',
+    selectedServices: ['Website Development', 'Digital Marketing', 'Branding'],
+    subscriptionStatus: 'active',
+    subscriptionExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    profileImage: 'https://ui-avatars.com/api/?name=Admin+User&background=2c5cc5&color=fff',
+  },
+  {
+    id: '2',
+    email: 'client@example.com',
+    name: 'Demo Client',
+    role: 'client',
+    selectedServices: ['Website Development', 'CMS Development'],
+    subscriptionStatus: 'active',
+    subscriptionExpiry: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
+    profileImage: 'https://ui-avatars.com/api/?name=Demo+Client&background=2c5cc5&color=fff',
+  }
+];
+
 const STORAGE_KEY = 'savannah_prime_auth';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<ClientUser | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [session, setSession] = useState<Session | null>(null);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session);
-        if (session) {
-          try {
-            // Check if user exists in our clients table
-            const { data, error } = await supabase
-              .from('clients')
-              .select('*')
-              .eq('email', session.user.email)
-              .single();
-            
-            if (error && error.code !== 'PGRST116') throw error;
-            
-            if (data) {
-              const user: ClientUser = {
-                id: data.id,
-                email: data.email,
-                name: data.name,
-                role: 'client',
-                selectedServices: data.selected_services || [],
-                subscriptionStatus: data.subscription_status || 'active',
-                subscriptionExpiry: data.subscription_expiry || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-                profileImage: data.profile_image
-              };
-              
-              setCurrentUser(user);
-              localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
-            } else {
-              setCurrentUser(null);
-              localStorage.removeItem(STORAGE_KEY);
-            }
-          } catch (error) {
-            console.error('Error fetching user profile:', error);
-            setCurrentUser(null);
-          }
-        } else {
-          setCurrentUser(null);
-          localStorage.removeItem(STORAGE_KEY);
-        }
-      }
-    );
-
-    // THEN check for existing session
-    const initAuth = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        setSession(session);
-        
-        if (session) {
-          // Check if user exists in our clients table
-          const { data, error } = await supabase
-            .from('clients')
-            .select('*')
-            .eq('email', session.user.email)
-            .single();
-          
-          if (error && error.code !== 'PGRST116') throw error;
-          
-          if (data) {
-            const user: ClientUser = {
-              id: data.id,
-              email: data.email,
-              name: data.name,
-              role: 'client',
-              selectedServices: data.selected_services || [],
-              subscriptionStatus: data.subscription_status || 'active',
-              subscriptionExpiry: data.subscription_expiry || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-              profileImage: data.profile_image
-            };
-            
-            setCurrentUser(user);
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
-          }
-        }
-      } catch (error) {
-        console.error('Error initializing auth:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    initAuth();
-    
-    return () => {
-      subscription.unsubscribe();
-    };
+    // Check for stored user on initial load
+    const storedUser = localStorage.getItem(STORAGE_KEY);
+    if (storedUser) {
+      setCurrentUser(JSON.parse(storedUser));
+    }
+    setIsLoading(false);
   }, []);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     
     try {
-      // Sign in with Supabase
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 800));
       
-      if (authError) throw authError;
-      
-      // Fetch user from our clients table
-      const { data, error } = await supabase
-        .from('clients')
-        .select('*')
-        .eq('email', email)
-        .single();
-      
-      // If not found, create a minimal profile
-      if (error && error.code === 'PGRST116') {
-        // User exists in auth but not in our clients table
-        const newUser: Partial<ClientUser> = {
-          email,
-          name: email.split('@')[0],
-          role: 'client',
-          selectedServices: [],
-          subscriptionStatus: 'active',
-          subscriptionExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-        };
-        
-        // Create user in our database
-        const { data: newData, error: insertError } = await supabase
-          .from('clients')
-          .insert({
-            email: newUser.email,
-            name: newUser.name,
-            selected_services: newUser.selectedServices,
-            subscription_status: newUser.subscriptionStatus,
-            subscription_expiry: newUser.subscriptionExpiry,
-            profile_image: `https://ui-avatars.com/api/?name=${newUser.name?.replace(' ', '+')}&background=2c5cc5&color=fff`
-          })
-          .select()
-          .single();
-        
-        if (insertError) throw insertError;
-        
-        if (newData) {
-          const user: ClientUser = {
-            id: newData.id,
-            email: newData.email,
-            name: newData.name,
-            role: 'client',
-            selectedServices: newData.selected_services || [],
-            subscriptionStatus: newData.subscription_status,
-            subscriptionExpiry: newData.subscription_expiry,
-            profileImage: newData.profile_image
-          };
-          
-          setCurrentUser(user);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
-        }
-      } else if (error) {
-        throw error;
-      } else if (data) {
-        const user: ClientUser = {
-          id: data.id,
-          email: data.email,
-          name: data.name,
-          role: 'client',
-          selectedServices: data.selected_services || [],
-          subscriptionStatus: data.subscription_status,
-          subscriptionExpiry: data.subscription_expiry,
-          profileImage: data.profile_image
-        };
-        
+      // Check if user exists with given credentials (for demo purposes)
+      if (email === 'admin@example.com' && password === 'Admin@1234') {
+        const user = sampleUsers.find(u => u.email === email) || null;
         setCurrentUser(user);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+        toast.success('Welcome back!');
+        return;
       }
       
-      toast.success('Welcome back!');
-    } catch (error) {
-      console.error('Login error:', error);
-      if (error instanceof Error) {
-        toast.error(error.message);
-      } else {
-        toast.error('Invalid email or password');
+      const user = sampleUsers.find(u => u.email === email);
+      if (user) {
+        setCurrentUser(user);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+        toast.success('Welcome back!');
+        return;
       }
+      
+      throw new Error('Invalid credentials');
+    } catch (error) {
+      toast.error('Invalid email or password');
       throw error;
     } finally {
       setIsLoading(false);
@@ -224,62 +102,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     
     try {
-      // Check if email already exists in our database
-      const { data: existingUser } = await supabase
-        .from('clients')
-        .select('email')
-        .eq('email', email)
-        .single();
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 800));
       
-      if (existingUser) {
+      // Check if email already exists
+      if (sampleUsers.some(u => u.email === email)) {
         throw new Error('Email already in use');
       }
       
-      // Sign up with Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password
-      });
-      
-      if (authError) throw authError;
-      
-      // Create profile in our database
-      const profileData = {
+      // Create new user
+      const newUser: User = {
+        id: String(sampleUsers.length + 1),
         email,
         name,
-        selected_services: services,
-        subscription_status: 'active' as const,
-        subscription_expiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-        profile_image: `https://ui-avatars.com/api/?name=${name.replace(' ', '+')}&background=2c5cc5&color=fff`
+        role: 'client',
+        selectedServices: services,
+        subscriptionStatus: 'active',
+        subscriptionExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        profileImage: `https://ui-avatars.com/api/?name=${name.replace(' ', '+')}&background=2c5cc5&color=fff`,
       };
       
-      const { data, error } = await supabase
-        .from('clients')
-        .insert(profileData)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      if (data) {
-        const user: ClientUser = {
-          id: data.id,
-          email: data.email,
-          name: data.name,
-          role: 'client',
-          selectedServices: data.selected_services || [],
-          subscriptionStatus: data.subscription_status,
-          subscriptionExpiry: data.subscription_expiry,
-          profileImage: data.profile_image
-        };
-        
-        setCurrentUser(user);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
-      }
-      
+      // In a real app, we would send this to an API
+      // For demo, we'll just update local state
+      sampleUsers.push(newUser);
+      setCurrentUser(newUser);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newUser));
       toast.success('Account created successfully!');
     } catch (error) {
-      console.error('Registration error:', error);
       if (error instanceof Error) {
         toast.error(error.message);
       } else {
@@ -291,10 +140,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const logout = async () => {
-    // Sign out from Supabase
-    await supabase.auth.signOut();
-    
+  const logout = () => {
     setCurrentUser(null);
     localStorage.removeItem(STORAGE_KEY);
     toast.info('You have been logged out');
@@ -303,25 +149,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const resetPassword = async (email: string) => {
     setIsLoading(true);
     try {
-      // Check if user exists in our database
-      const { data, error } = await supabase
-        .from('clients')
-        .select('email')
-        .eq('email', email)
-        .single();
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 800));
       
-      if (error && error.code !== 'PGRST116') throw new Error('No account found with this email');
+      // Check if user exists
+      const userExists = sampleUsers.some(u => u.email === email);
+      if (!userExists) {
+        throw new Error('No account found with this email');
+      }
       
-      // Send password reset email through Supabase
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin + '/reset-password',
-      });
-      
-      if (resetError) throw resetError;
-      
+      // In a real app, we would send a password reset email
       toast.success('Password reset email sent. Check your inbox.');
     } catch (error) {
-      console.error('Password reset error:', error);
       if (error instanceof Error) {
         toast.error(error.message);
       } else {
@@ -333,41 +172,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const updateUser = async (userData: Partial<ClientUser>) => {
+  const updateUser = (userData: Partial<User>) => {
     if (!currentUser) return;
     
-    try {
-      // Convert client-side model to database model
-      const dbData: any = {};
-      
-      if (userData.name) dbData.name = userData.name;
-      if (userData.selectedServices) dbData.selected_services = userData.selectedServices;
-      if (userData.subscriptionStatus) dbData.subscription_status = userData.subscriptionStatus;
-      if (userData.subscriptionExpiry) dbData.subscription_expiry = userData.subscriptionExpiry;
-      if (userData.profileImage) dbData.profile_image = userData.profileImage;
-      
-      // Update in database
-      const { error } = await supabase
-        .from('clients')
-        .update(dbData)
-        .eq('id', currentUser.id);
-      
-      if (error) throw error;
-      
-      // Update local state
-      const updatedUser = { ...currentUser, ...userData };
-      setCurrentUser(updatedUser);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedUser));
-      
-      toast.success('Profile updated successfully');
-    } catch (error) {
-      console.error('Update user error:', error);
-      if (error instanceof Error) {
-        toast.error(error.message);
-      } else {
-        toast.error('Failed to update profile');
-      }
+    const updatedUser = { ...currentUser, ...userData };
+    setCurrentUser(updatedUser);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedUser));
+    
+    // Update in sample array too (for demo purposes)
+    const index = sampleUsers.findIndex(u => u.id === currentUser.id);
+    if (index !== -1) {
+      sampleUsers[index] = updatedUser;
     }
+    
+    toast.success('Profile updated successfully');
   };
 
   const value = {

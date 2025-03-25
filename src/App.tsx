@@ -34,16 +34,7 @@ import AdminSettings from "./pages/admin/Settings";
 import SalesDashboard from "./pages/admin/sales/Dashboard";
 import SupportDashboard from "./pages/admin/support/Dashboard";
 
-// Create a new QueryClient instance
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      retry: 1,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-    },
-  },
-});
+const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -72,8 +63,6 @@ const App = () => (
                 
                 {/* Admin Routes */}
                 <Route path="/admin/login" element={<AdminLogin />} />
-                
-                {/* Main Admin Routes */}
                 <Route path="/admin" element={<AdminLayout />}>
                   <Route index element={<Navigate to="/admin/dashboard" replace />} />
                   <Route path="dashboard" element={<AdminDashboard />} />
@@ -86,21 +75,15 @@ const App = () => (
                   <Route path="settings" element={<AdminSettings />} />
                 </Route>
 
-                {/* Sales Role Admin Dashboard */}
+                {/* Role-specific Admin Dashboards */}
                 <Route path="/admin/sales" element={<AdminLayout />}>
-                  <Route index element={<Navigate to="/admin/sales/dashboard" replace />} />
+                  <Route index element={<SalesDashboard />} />
                   <Route path="dashboard" element={<SalesDashboard />} />
-                  <Route path="users" element={<UserManagement />} />
-                  <Route path="finance" element={<AdminFinance />} />
-                  <Route path="analytics" element={<AdminAnalytics />} />
                 </Route>
                 
-                {/* Support Role Admin Dashboard */}
                 <Route path="/admin/support" element={<AdminLayout />}>
-                  <Route index element={<Navigate to="/admin/support/dashboard" replace />} />
+                  <Route index element={<SupportDashboard />} />
                   <Route path="dashboard" element={<SupportDashboard />} />
-                  <Route path="communications" element={<AdminCommunications />} />
-                  <Route path="users" element={<UserManagement />} />
                 </Route>
                 
                 {/* Catch All */}
