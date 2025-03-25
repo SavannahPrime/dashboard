@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -15,14 +14,14 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { serviceOptions } from '@/lib/services-data';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ChevronLeft, ChevronRight, Eye, EyeOff, Globe, LayoutGrid, Cpu, BarChart, PaintBrush, Loader2, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Eye, EyeOff, Globe, LayoutGrid, Cpu, BarChart, Paintbrush, Loader2, Check } from 'lucide-react';
 
 const icons: Record<string, React.ReactNode> = {
   'globe': <Globe className="h-6 w-6" />,
   'layout-grid': <LayoutGrid className="h-6 w-6" />,
   'cpu': <Cpu className="h-6 w-6" />,
   'bar-chart': <BarChart className="h-6 w-6" />,
-  'paintbrush': <PaintBrush className="h-6 w-6" />,
+  'paintbrush': <Paintbrush className="h-6 w-6" />,
 };
 
 const RegisterForm: React.FC = () => {
