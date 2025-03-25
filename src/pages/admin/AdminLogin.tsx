@@ -51,7 +51,7 @@ const AdminLogin: React.FC = () => {
     
     switch (role) {
       case 'admin':
-        email = 'admin@prime.com';
+        email = 'freddieolesaruni@gmail.com';
         password = 'PrimeAdmin@2024';
         break;
       case 'sales':
