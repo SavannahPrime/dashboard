@@ -548,7 +548,7 @@ const Settings: React.FC = () => {
                       <h4 className="font-medium">Supabase Connection</h4>
                       <p className="text-sm text-muted-foreground">Backend database configuration</p>
                     </div>
-                    <Badge variant="success">Connected</Badge>
+                    <Badge variant="default">Connected</Badge>
                   </div>
                   
                   <div className="bg-muted p-3 rounded-md">
@@ -588,7 +588,7 @@ const Settings: React.FC = () => {
                       <h4 className="font-medium">Email Service</h4>
                       <p className="text-sm text-muted-foreground">For sending notifications and alerts</p>
                     </div>
-                    <Badge variant="success">Connected</Badge>
+                    <Badge variant="default">Connected</Badge>
                   </div>
                   
                   <div className="flex justify-between items-center">
@@ -596,7 +596,7 @@ const Settings: React.FC = () => {
                       <h4 className="font-medium">Payment Gateway</h4>
                       <p className="text-sm text-muted-foreground">Processes client payments</p>
                     </div>
-                    <Badge variant="success">Connected</Badge>
+                    <Badge variant="default">Connected</Badge>
                   </div>
                   
                   <div className="flex justify-between items-center">
@@ -612,7 +612,7 @@ const Settings: React.FC = () => {
                       <h4 className="font-medium">Analytics Service</h4>
                       <p className="text-sm text-muted-foreground">For tracking user behavior</p>
                     </div>
-                    <Badge variant="success">Connected</Badge>
+                    <Badge variant="default">Connected</Badge>
                   </div>
                 </div>
                 
