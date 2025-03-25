@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
@@ -218,7 +217,7 @@ const Support: React.FC = () => {
                           <SelectValue placeholder="Select service" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">General Inquiry</SelectItem>
+                          <SelectItem value="general">General Inquiry</SelectItem>
                           {currentUser.selectedServices.map((service, index) => (
                             <SelectItem key={index} value={service}>
                               {service}
