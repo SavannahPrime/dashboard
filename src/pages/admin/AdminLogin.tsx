@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { Shield, Lock } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 type FormValues = {
   email: string;
@@ -44,6 +45,51 @@ const AdminLogin: React.FC = () => {
     }
   }, [isAuthenticated, isLoading, currentAdmin, navigate]);
   
+  const handleDemoLogin = async (role: string) => {
+    let email = '';
+    let password = '';
+    
+    switch (role) {
+      case 'admin':
+        email = 'admin@prime.com';
+        password = 'PrimeAdmin@2024';
+        break;
+      case 'sales':
+        email = 'sales@prime.com';
+        password = 'PrimeSales@2024';
+        break;
+      case 'support':
+        email = 'support@prime.com';
+        password = 'PrimeSupport@2024';
+        break;
+      default:
+        return;
+    }
+    
+    try {
+      // First ensure the user exists in Supabase Auth
+      const { data: { user }, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+      
+      if (authError && !authError.message.includes('already registered')) {
+        throw authError;
+      }
+      
+      // Then perform login
+      await login(email, password);
+    } catch (error) {
+      console.error('Demo login error:', error);
+      // We'll try normal login as the user might already exist
+      try {
+        await login(email, password);
+      } catch (secondError) {
+        console.error('Second login attempt failed:', secondError);
+      }
+    }
+  };
+  
   // Show loading state while redirection is in progress
   if (isLoading) {
     return (
@@ -54,6 +100,17 @@ const AdminLogin: React.FC = () => {
         </div>
       </div>
     );
+  }
+  
+  // If already authenticated, redirect based on role
+  if (isAuthenticated && currentAdmin) {
+    if (currentAdmin.role === 'sales') {
+      return <Navigate to="/admin/sales/dashboard" replace />;
+    } else if (currentAdmin.role === 'support') {
+      return <Navigate to="/admin/support/dashboard" replace />;
+    } else {
+      return <Navigate to="/admin/dashboard" replace />;
+    }
   }
   
   return (
@@ -114,12 +171,39 @@ const AdminLogin: React.FC = () => {
                 )}
               </div>
               <div className="text-sm bg-muted p-3 rounded-md">
-                <p className="font-medium mb-1">Sample Credentials</p>
-                <ul className="space-y-1 text-muted-foreground">
-                  <li><span className="font-medium">Super Admin:</span> admin@prime.com / PrimeAdmin@2024</li>
-                  <li><span className="font-medium">Sales:</span> sales@prime.com / PrimeSales@2024</li>
-                  <li><span className="font-medium">Support:</span> support@prime.com / PrimeSupport@2024</li>
-                </ul>
+                <p className="font-medium mb-1">Quick Demo Login</p>
+                <div className="space-y-2 mt-2">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full justify-start"
+                    onClick={() => handleDemoLogin('admin')}
+                  >
+                    <Shield className="mr-2 h-4 w-4 text-primary" />
+                    Login as Super Admin
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full justify-start"
+                    onClick={() => handleDemoLogin('sales')}
+                  >
+                    <Shield className="mr-2 h-4 w-4 text-emerald-500" />
+                    Login as Sales Account
+                  </Button>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full justify-start"
+                    onClick={() => handleDemoLogin('support')}
+                  >
+                    <Shield className="mr-2 h-4 w-4 text-blue-500" />
+                    Login as Support Staff
+                  </Button>
+                </div>
               </div>
             </CardContent>
             <CardFooter className="flex-col space-y-4">

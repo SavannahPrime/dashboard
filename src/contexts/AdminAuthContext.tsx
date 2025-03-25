@@ -1,7 +1,8 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
+import { Session, User } from '@supabase/supabase-js';
 
 export type AdminRole = 'super_admin' | 'sales' | 'support';
 
@@ -26,145 +27,167 @@ interface AdminAuthContextType {
 
 const AdminAuthContext = createContext<AdminAuthContextType | undefined>(undefined);
 
-// Sample admin users for demo
-const sampleAdmins: AdminUser[] = [
-  {
-    id: '1',
-    email: 'admin@prime.com',
-    name: 'Super Admin',
-    role: 'super_admin',
-    permissions: ['all'],
-    lastLogin: new Date().toISOString(),
-    profileImage: 'https://ui-avatars.com/api/?name=Super+Admin&background=2c5cc5&color=fff',
-  },
-  {
-    id: '2',
-    email: 'sales@prime.com',
-    name: 'Sales Account',
-    role: 'sales',
-    permissions: ['view_clients', 'view_sales', 'edit_clients', 'view_reports'],
-    lastLogin: new Date().toISOString(),
-    profileImage: 'https://ui-avatars.com/api/?name=Sales+Account&background=2c5cc5&color=fff',
-  },
-  {
-    id: '3',
-    email: 'support@prime.com',
-    name: 'Support Staff',
-    role: 'support',
-    permissions: ['view_clients', 'view_tickets', 'reply_tickets', 'impersonate'],
-    lastLogin: new Date().toISOString(),
-    profileImage: 'https://ui-avatars.com/api/?name=Support+Staff&background=2c5cc5&color=fff',
-  },
-];
-
 const STORAGE_KEY = 'savannah_prime_admin';
-
-// Initialize Supabase client - in a real app you would use actual credentials
-// For demo purposes, we'll continue using localStorage but structure the code for Supabase integration
-let supabase: any = null;
-try {
-  // For future Supabase implementation
-  // This would use actual API keys in production
-  // supabase = createClient('https://your-supabase-url.supabase.co', 'your-anon-key');
-} catch (error) {
-  console.error('Error initializing Supabase client', error);
-}
 
 export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentAdmin, setCurrentAdmin] = useState<AdminUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [session, setSession] = useState<Session | null>(null);
 
   useEffect(() => {
-    // Check for stored admin on initial load
-    // In a real Supabase implementation, this would verify the session
-    const checkAuth = async () => {
-      setIsLoading(true);
-      
-      try {
-        if (supabase) {
-          // For future Supabase implementation
-          // const { data: { session }, error } = await supabase.auth.getSession();
-          // if (session) {
-          //   // Fetch user profile from Supabase
-          //   const { data, error } = await supabase.from('admin_users').select('*').eq('id', session.user.id).single();
-          //   if (data) setCurrentAdmin(data);
-          // }
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setSession(session);
+        if (session) {
+          try {
+            const { data, error } = await supabase
+              .from('admin_users')
+              .select('*')
+              .eq('email', session.user.email)
+              .single();
+            
+            if (error) throw error;
+            
+            if (data) {
+              const adminUser: AdminUser = {
+                id: data.id,
+                email: data.email,
+                name: data.name,
+                role: data.role as AdminRole,
+                permissions: data.permissions || [],
+                lastLogin: new Date().toISOString(),
+                profileImage: data.profile_image
+              };
+              
+              setCurrentAdmin(adminUser);
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(adminUser));
+            } else {
+              setCurrentAdmin(null);
+              localStorage.removeItem(STORAGE_KEY);
+            }
+          } catch (error) {
+            console.error('Error fetching admin profile:', error);
+            setCurrentAdmin(null);
+          }
         } else {
-          // Fallback to localStorage for demo
-          const storedAdmin = localStorage.getItem(STORAGE_KEY);
-          if (storedAdmin) {
-            setCurrentAdmin(JSON.parse(storedAdmin));
+          setCurrentAdmin(null);
+          localStorage.removeItem(STORAGE_KEY);
+        }
+      }
+    );
+
+    // THEN check for existing session
+    const initAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        setSession(session);
+        
+        if (session) {
+          const { data, error } = await supabase
+            .from('admin_users')
+            .select('*')
+            .eq('email', session.user.email)
+            .single();
+          
+          if (error) throw error;
+          
+          if (data) {
+            const adminUser: AdminUser = {
+              id: data.id,
+              email: data.email,
+              name: data.name,
+              role: data.role as AdminRole,
+              permissions: data.permissions || [],
+              lastLogin: new Date().toISOString(),
+              profileImage: data.profile_image
+            };
+            
+            setCurrentAdmin(adminUser);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(adminUser));
           }
         }
       } catch (error) {
-        console.error('Error checking auth:', error);
+        console.error('Error initializing auth:', error);
       } finally {
         setIsLoading(false);
       }
     };
     
-    checkAuth();
+    initAuth();
+    
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const login = async (email: string, password: string) => {
     setIsLoading(true);
     
     try {
-      if (supabase) {
-        // For future Supabase implementation
-        // const { data: { session }, error } = await supabase.auth.signInWithPassword({ email, password });
-        // if (error) throw error;
-        // 
-        // // Fetch user profile from Supabase
-        // const { data, error: profileError } = await supabase.from('admin_users').select('*').eq('id', session.user.id).single();
-        // if (profileError) throw profileError;
-        // 
-        // setCurrentAdmin(data);
-        // localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-      } else {
-        // Simulate API call delay
-        await new Promise(resolve => setTimeout(resolve, 800));
-        
-        // Check admin credentials
-        if (email === 'admin@prime.com' && password === 'PrimeAdmin@2024') {
-          const admin = sampleAdmins.find(u => u.email === email) || null;
-          setCurrentAdmin(admin);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(admin));
-          toast.success('Welcome back, Super Admin!');
-          return;
-        }
-        
-        if (email === 'sales@prime.com' && password === 'PrimeSales@2024') {
-          const admin = sampleAdmins.find(u => u.email === email) || null;
-          setCurrentAdmin(admin);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(admin));
-          toast.success('Welcome back, Sales Account!');
-          return;
-        }
-        
-        if (email === 'support@prime.com' && password === 'PrimeSupport@2024') {
-          const admin = sampleAdmins.find(u => u.email === email) || null;
-          setCurrentAdmin(admin);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(admin));
-          toast.success('Welcome back, Support Staff!');
-          return;
-        }
-        
-        throw new Error('Invalid credentials');
+      // Sign in with Supabase
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+      
+      if (authError) throw authError;
+      
+      // Fetch admin user from the database
+      const { data, error } = await supabase
+        .from('admin_users')
+        .select('*')
+        .eq('email', email)
+        .single();
+      
+      if (error) throw error;
+      
+      if (!data) {
+        throw new Error('Admin account not found');
       }
+      
+      // Update last login time
+      await supabase
+        .from('admin_users')
+        .update({ last_login: new Date().toISOString() })
+        .eq('email', email);
+      
+      const adminUser: AdminUser = {
+        id: data.id,
+        email: data.email,
+        name: data.name,
+        role: data.role as AdminRole,
+        permissions: data.permissions || [],
+        lastLogin: new Date().toISOString(),
+        profileImage: data.profile_image
+      };
+      
+      setCurrentAdmin(adminUser);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(adminUser));
+      
+      let welcomeMessage = 'Welcome back';
+      if (data.role === 'super_admin') welcomeMessage += ', Super Admin!';
+      else if (data.role === 'sales') welcomeMessage += ', Sales Account!';
+      else if (data.role === 'support') welcomeMessage += ', Support Staff!';
+      else welcomeMessage += '!';
+      
+      toast.success(welcomeMessage);
     } catch (error) {
-      toast.error('Invalid email or password');
+      console.error('Login error:', error);
+      if (error instanceof Error) {
+        toast.error(error.message);
+      } else {
+        toast.error('Invalid email or password');
+      }
       throw error;
     } finally {
       setIsLoading(false);
     }
   };
 
-  const logout = () => {
-    if (supabase) {
-      // For future Supabase implementation
-      // supabase.auth.signOut();
-    }
+  const logout = async () => {
+    // Sign out from Supabase
+    await supabase.auth.signOut();
     
     setCurrentAdmin(null);
     localStorage.removeItem(STORAGE_KEY);
@@ -174,22 +197,22 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const resetPassword = async (email: string) => {
     setIsLoading(true);
     try {
-      if (supabase) {
-        // For future Supabase implementation
-        // const { error } = await supabase.auth.resetPasswordForEmail(email);
-        // if (error) throw error;
-      } else {
-        // Simulate API call delay
-        await new Promise(resolve => setTimeout(resolve, 800));
-        
-        // Check if admin exists
-        const adminExists = sampleAdmins.some(u => u.email === email);
-        if (!adminExists) {
-          throw new Error('No admin account found with this email');
-        }
-      }
+      // Check if admin exists in our database
+      const { data, error } = await supabase
+        .from('admin_users')
+        .select('email')
+        .eq('email', email)
+        .single();
       
-      // In a real app, we would send a password reset email
+      if (error) throw new Error('No admin account found with this email');
+      
+      // Send password reset email through Supabase
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + '/admin/reset-password',
+      });
+      
+      if (resetError) throw resetError;
+      
       toast.success('Password reset email sent. Check your inbox.');
     } catch (error) {
       if (error instanceof Error) {
