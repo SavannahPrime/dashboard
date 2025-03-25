@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -110,14 +109,14 @@ const messageData = [
     id: '5', 
     client: { id: '105', name: 'David Wilson', email: 'david@example.com', avatar: 'https://ui-avatars.com/api/?name=David+Wilson' }, 
     subject: 'Content creation schedule',
-    preview: 'I'd like to discuss our content calendar for the next quarter.',
+    preview: "I'd like to discuss our content calendar for the next quarter.",
     date: '2023-11-20T09:10:00Z',
     unread: true,
     messages: [
       { 
         id: 'm1', 
         sender: 'client', 
-        content: 'I'd like to discuss our content calendar for the next quarter.', 
+        content: "I'd like to discuss our content calendar for the next quarter.", 
         timestamp: '2023-11-20T09:10:00Z' 
       }
     ]
@@ -128,7 +127,7 @@ const messageData = [
 const templateData = [
   { id: '1', name: 'Welcome Message', subject: 'Welcome to Savannah Prime', content: 'Dear [Client Name],\n\nWelcome to Savannah Prime! We are excited to have you on board. Here are some next steps to get started with our services...' },
   { id: '2', name: 'Payment Confirmation', subject: 'Payment Received - Thank You', content: 'Dear [Client Name],\n\nThank you for your recent payment of $[Amount]. This email confirms that we have received your payment for [Service Name]...' },
-  { id: '3', name: 'Monthly Report', subject: 'Your Monthly Performance Report', content: 'Dear [Client Name],\n\nPlease find attached your monthly performance report for [Month]. Here's a summary of the key highlights...' },
+  { id: '3', name: 'Monthly Report', subject: 'Your Monthly Performance Report', content: 'Dear [Client Name],\n\nPlease find attached your monthly performance report for [Month]. Here\'s a summary of the key highlights...' },
   { id: '4', name: 'Service Update', subject: 'Important Update to Your Services', content: 'Dear [Client Name],\n\nWe are writing to inform you about an important update to your [Service Name]. Effective [Date], the following changes will take place...' },
   { id: '5', name: 'Support Request Follow-up', subject: 'Follow-up on Your Recent Support Request', content: 'Dear [Client Name],\n\nThank you for contacting our support team regarding [Issue]. We wanted to follow up and ensure that everything has been resolved to your satisfaction...' },
 ];
