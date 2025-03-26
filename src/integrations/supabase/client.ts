@@ -11,6 +11,34 @@ export const supabase = createClient(
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true
+    },
+    realtime: {
+      params: {
+        eventsPerSecond: 10
+      }
+    },
+    global: {
+      headers: {
+        'x-application-name': 'savannah-prime-admin'
+      }
     }
   }
 );
+
+// Helper function to handle database errors
+export const handleDatabaseError = (error: any) => {
+  console.error('Database operation error:', error);
+  
+  // Return a user-friendly error message
+  if (error?.code === '23505') {
+    return 'This record already exists.';
+  } else if (error?.code === '23503') {
+    return 'This operation cannot be completed because the record is referenced by another record.';
+  } else if (error?.code === '42P01') {
+    return 'Database connection error. Please try again later.';
+  } else if (error?.message) {
+    return error.message;
+  }
+  
+  return 'An unexpected error occurred. Please try again later.';
+};

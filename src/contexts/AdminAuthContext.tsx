@@ -19,9 +19,10 @@ export interface AdminUser {
 interface AdminAuthContextType {
   currentAdmin: AdminUser | null;
   isLoading: boolean;
+  isInitializing: boolean;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
 }
 
@@ -31,45 +32,65 @@ const STORAGE_KEY = 'savannah_prime_admin';
 
 export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentAdmin, setCurrentAdmin] = useState<AdminUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
+
+  // Function to fetch admin profile data
+  const fetchAdminProfile = async (email: string): Promise<AdminUser | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('admin_users')
+        .select('*')
+        .eq('email', email)
+        .single();
+      
+      if (error) throw error;
+      
+      if (data) {
+        const adminUser: AdminUser = {
+          id: data.id,
+          email: data.email,
+          name: data.name,
+          role: data.role as AdminRole,
+          permissions: data.permissions || [],
+          lastLogin: new Date().toISOString(),
+          profileImage: data.profile_image
+        };
+        return adminUser;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error fetching admin profile:', error);
+      return null;
+    }
+  };
 
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         setSession(session);
+        
         if (session) {
-          try {
-            const { data, error } = await supabase
-              .from('admin_users')
-              .select('*')
-              .eq('email', session.user.email)
-              .single();
-            
-            if (error) throw error;
-            
-            if (data) {
-              const adminUser: AdminUser = {
-                id: data.id,
-                email: data.email,
-                name: data.name,
-                role: data.role as AdminRole,
-                permissions: data.permissions || [],
-                lastLogin: new Date().toISOString(),
-                profileImage: data.profile_image
-              };
-              
+          const email = session.user.email;
+          if (!email) {
+            setCurrentAdmin(null);
+            localStorage.removeItem(STORAGE_KEY);
+            return;
+          }
+          
+          // Use setTimeout to avoid potential supabase client deadlock
+          setTimeout(async () => {
+            const adminUser = await fetchAdminProfile(email);
+            if (adminUser) {
               setCurrentAdmin(adminUser);
               localStorage.setItem(STORAGE_KEY, JSON.stringify(adminUser));
             } else {
               setCurrentAdmin(null);
               localStorage.removeItem(STORAGE_KEY);
             }
-          } catch (error) {
-            console.error('Error fetching admin profile:', error);
-            setCurrentAdmin(null);
-          }
+          }, 0);
         } else {
           setCurrentAdmin(null);
           localStorage.removeItem(STORAGE_KEY);
@@ -83,34 +104,17 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const { data: { session } } = await supabase.auth.getSession();
         setSession(session);
         
-        if (session) {
-          const { data, error } = await supabase
-            .from('admin_users')
-            .select('*')
-            .eq('email', session.user.email)
-            .single();
-          
-          if (error) throw error;
-          
-          if (data) {
-            const adminUser: AdminUser = {
-              id: data.id,
-              email: data.email,
-              name: data.name,
-              role: data.role as AdminRole,
-              permissions: data.permissions || [],
-              lastLogin: new Date().toISOString(),
-              profileImage: data.profile_image
-            };
-            
+        if (session?.user?.email) {
+          const adminUser = await fetchAdminProfile(session.user.email);
+          if (adminUser) {
             setCurrentAdmin(adminUser);
             localStorage.setItem(STORAGE_KEY, JSON.stringify(adminUser));
           }
         }
       } catch (error) {
-        console.error('Error initializing auth:', error);
+        console.error('Error initializing admin auth:', error);
       } finally {
-        setIsLoading(false);
+        setIsInitializing(false);
       }
     };
     
@@ -134,15 +138,9 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       if (authError) throw authError;
       
       // Fetch admin user from the database
-      const { data, error } = await supabase
-        .from('admin_users')
-        .select('*')
-        .eq('email', email)
-        .single();
+      const adminUser = await fetchAdminProfile(email);
       
-      if (error) throw error;
-      
-      if (!data) {
+      if (!adminUser) {
         throw new Error('Admin account not found');
       }
       
@@ -152,23 +150,13 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         .update({ last_login: new Date().toISOString() })
         .eq('email', email);
       
-      const adminUser: AdminUser = {
-        id: data.id,
-        email: data.email,
-        name: data.name,
-        role: data.role as AdminRole,
-        permissions: data.permissions || [],
-        lastLogin: new Date().toISOString(),
-        profileImage: data.profile_image
-      };
-      
       setCurrentAdmin(adminUser);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(adminUser));
       
       let welcomeMessage = 'Welcome back';
-      if (data.role === 'super_admin') welcomeMessage += ', Super Admin!';
-      else if (data.role === 'sales') welcomeMessage += ', Sales Account!';
-      else if (data.role === 'support') welcomeMessage += ', Support Staff!';
+      if (adminUser.role === 'super_admin') welcomeMessage += ', Super Admin!';
+      else if (adminUser.role === 'sales') welcomeMessage += ', Sales Account!';
+      else if (adminUser.role === 'support') welcomeMessage += ', Support Staff!';
       else welcomeMessage += '!';
       
       toast.success(welcomeMessage);
@@ -186,12 +174,20 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const logout = async () => {
-    // Sign out from Supabase
-    await supabase.auth.signOut();
-    
-    setCurrentAdmin(null);
-    localStorage.removeItem(STORAGE_KEY);
-    toast.info('You have been logged out');
+    setIsLoading(true);
+    try {
+      // Sign out from Supabase
+      await supabase.auth.signOut();
+      
+      setCurrentAdmin(null);
+      localStorage.removeItem(STORAGE_KEY);
+      toast.info('You have been logged out');
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast.error('Logout failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const resetPassword = async (email: string) => {
@@ -229,11 +225,22 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const value = {
     currentAdmin,
     isLoading,
+    isInitializing,
     isAuthenticated: !!currentAdmin,
     login,
     logout,
     resetPassword,
   };
+
+  // Show initialization loading UI at the outermost level
+  if (isInitializing) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        <p className="mt-4 text-muted-foreground">Loading admin panel...</p>
+      </div>
+    );
+  }
 
   return <AdminAuthContext.Provider value={value}>{children}</AdminAuthContext.Provider>;
 };

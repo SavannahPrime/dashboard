@@ -1,8 +1,8 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { LogOut } from 'lucide-react';
+import { LogOut, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
@@ -21,19 +21,28 @@ const LogoutButton: React.FC<LogoutButtonProps> = ({
   className = ''
 }) => {
   const navigate = useNavigate();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const { logout: clientLogout } = useAuth();
   const { logout: adminLogout } = useAdminAuth();
   
   const handleLogout = async () => {
+    if (isLoggingOut) return; // Prevent multiple clicks
+    
     try {
+      setIsLoggingOut(true);
       toast.loading('Logging out...');
       
       if (isAdminLogout) {
         await adminLogout();
-        navigate('/admin/login');
+        // Short delay to ensure state is updated
+        setTimeout(() => {
+          navigate('/admin/login');
+        }, 100);
       } else {
         await clientLogout();
-        navigate('/login');
+        setTimeout(() => {
+          navigate('/login');
+        }, 100);
       }
       
       toast.dismiss();
@@ -42,6 +51,8 @@ const LogoutButton: React.FC<LogoutButtonProps> = ({
       console.error('Logout error:', error);
       toast.dismiss();
       toast.error('Failed to log out. Please try again.');
+    } finally {
+      setIsLoggingOut(false);
     }
   };
 
@@ -51,8 +62,13 @@ const LogoutButton: React.FC<LogoutButtonProps> = ({
       size={size}
       onClick={handleLogout}
       className={className}
+      disabled={isLoggingOut}
     >
-      <LogOut className="h-4 w-4 mr-2" />
+      {isLoggingOut ? (
+        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+      ) : (
+        <LogOut className="h-4 w-4 mr-2" />
+      )}
       Log Out
     </Button>
   );

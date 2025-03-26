@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { Button } from '@/components/ui/button';
@@ -17,14 +17,14 @@ import {
   LogOut, 
   ChevronLeft, 
   ChevronRight,
-  UserCog
+  UserCog,
+  Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
 import LogoutButton from '@/components/common/LogoutButton';
 
 const AdminSidebar: React.FC = () => {
-  const { currentAdmin, logout } = useAdminAuth();
+  const { currentAdmin, logout, isLoading } = useAdminAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
@@ -99,10 +99,15 @@ const AdminSidebar: React.FC = () => {
     item.showFor.includes(currentAdmin?.role || '')
   );
 
-  const handleLogout = () => {
-    logout();
-    navigate('/admin/login');
-  };
+  // Loading state view
+  if (isLoading) {
+    return (
+      <aside className="bg-card border-r border-border w-[250px] flex flex-col items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="mt-2 text-sm text-muted-foreground">Loading...</p>
+      </aside>
+    );
+  }
 
   return (
     <aside 
