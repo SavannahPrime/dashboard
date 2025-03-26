@@ -39,6 +39,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination';
+import { toast } from 'sonner';
 
 const users = [
   {
@@ -429,4 +430,3 @@ const UserManagement: React.FC = () => {
 };
 
 export default UserManagement;
-

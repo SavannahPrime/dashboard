@@ -8,14 +8,14 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 
 interface LogoutButtonProps {
-  adminLogout?: boolean;
+  isAdminLogout?: boolean;
   variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
   size?: 'default' | 'sm' | 'lg' | 'icon';
   className?: string;
 }
 
 const LogoutButton: React.FC<LogoutButtonProps> = ({ 
-  adminLogout = false, 
+  isAdminLogout = false, 
   variant = 'ghost',
   size = 'default',
   className = ''
@@ -28,7 +28,7 @@ const LogoutButton: React.FC<LogoutButtonProps> = ({
     try {
       toast.loading('Logging out...');
       
-      if (adminLogout) {
+      if (isAdminLogout) {
         await adminLogout();
         navigate('/admin/login');
       } else {
