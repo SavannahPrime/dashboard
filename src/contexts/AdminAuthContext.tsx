@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Session, User } from '@supabase/supabase-js';
-import { Loader2 } from 'lucide-react'; // Adding the missing import
+import { Loader2 } from 'lucide-react';
 
 export type AdminRole = 'super_admin' | 'sales' | 'support';
 

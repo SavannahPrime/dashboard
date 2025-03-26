@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
@@ -16,7 +15,6 @@ type FormValues = {
   password: string;
 };
 
-// Admin credentials
 const ADMIN_CREDENTIALS = {
   admin: {
     email: 'admin@savannahprimeagency.tech',
@@ -55,10 +53,8 @@ const AdminLogin: React.FC = () => {
     }
   };
   
-  // Effect to redirect based on role after successful login
   useEffect(() => {
     if (isAuthenticated && !isLoading && currentAdmin) {
-      // Redirect to role-specific dashboard
       if (currentAdmin.role === 'sales') {
         navigate('/admin/sales/dashboard', { replace: true });
       } else if (currentAdmin.role === 'support') {
@@ -80,17 +76,14 @@ const AdminLogin: React.FC = () => {
     try {
       toast.loading('Logging in as ' + credentials.name);
       
-      // First try to sign in
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: credentials.email,
         password: credentials.password,
       });
       
-      // If sign in fails, create the account
       if (signInError) {
         console.log('Sign in failed, creating account:', signInError.message);
         
-        // Create account in auth
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email: credentials.email,
           password: credentials.password,
@@ -100,7 +93,6 @@ const AdminLogin: React.FC = () => {
           throw signUpError;
         }
         
-        // Create record in admin_users table
         if (signUpData.user) {
           const { error: insertError } = await supabase
             .from('admin_users')
@@ -119,7 +111,6 @@ const AdminLogin: React.FC = () => {
           }
         }
         
-        // Try sign in again after creating account
         const { error: secondSignInError } = await supabase.auth.signInWithPassword({
           email: credentials.email,
           password: credentials.password,
@@ -130,7 +121,6 @@ const AdminLogin: React.FC = () => {
         }
       }
       
-      // Finally call the login function in the context
       await login(credentials.email, credentials.password);
       toast.success(`Welcome, ${credentials.name}!`);
       
@@ -146,7 +136,6 @@ const AdminLogin: React.FC = () => {
     }
   };
   
-  // Show loading state while redirection is in progress
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -158,7 +147,6 @@ const AdminLogin: React.FC = () => {
     );
   }
   
-  // If already authenticated, redirect based on role
   if (isAuthenticated && currentAdmin) {
     if (currentAdmin.role === 'sales') {
       return <Navigate to="/admin/sales/dashboard" replace />;
