@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -408,7 +407,7 @@ const ServiceManagement: React.FC = () => {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant={service.active ? "success" : "secondary"}>
+                          <Badge variant={service.active ? "secondary" : "outline"}>
                             {service.active ? 'Active' : 'Inactive'}
                           </Badge>
                         </TableCell>
@@ -778,7 +777,7 @@ const ServiceManagement: React.FC = () => {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Status</p>
-                  <Badge variant={selectedService.active ? "success" : "secondary"}>
+                  <Badge variant={selectedService.active ? "secondary" : "outline"}>
                     {selectedService.active ? 'Active' : 'Inactive'}
                   </Badge>
                 </div>
