@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
@@ -44,22 +45,22 @@ const AdminLogin: React.FC = () => {
     }
   }, [isAuthenticated, isLoading, currentAdmin, navigate]);
   
-  const handleDemoLogin = async (role: string) => {
+  const handleProfessionalLogin = async (role: string) => {
     let email = '';
     let password = '';
     
     switch (role) {
       case 'admin':
-        email = 'admin@prime.com';
-        password = 'PrimeAdmin@2024';
+        email = 'admin@savannahprimeagency.tech';
+        password = 'SavannahPrime@Admin2024';
         break;
       case 'sales':
-        email = 'sales@prime.com';
-        password = 'PrimeSales@2024';
+        email = 'sales@savannahprimeagency.tech';
+        password = 'SavannahPrime@Sales2024';
         break;
       case 'support':
-        email = 'support@prime.com';
-        password = 'PrimeSupport@2024';
+        email = 'support@savannahprimeagency.tech';
+        password = 'SavannahPrime@Support2024';
         break;
       default:
         return;
@@ -69,7 +70,7 @@ const AdminLogin: React.FC = () => {
       // Directly perform login without checking email verification
       await login(email, password);
     } catch (error) {
-      console.error('Demo login error:', error);
+      console.error('Login error:', error);
       // If login fails, attempt to create the user and log in again
       try {
         const { error: authError } = await supabase.auth.signUp({
@@ -79,6 +80,27 @@ const AdminLogin: React.FC = () => {
 
         if (authError && !authError.message.includes('already registered')) {
           throw authError;
+        }
+
+        // Update admin_users table with new user info
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData && userData.user) {
+          const { error: insertError } = await supabase
+            .from('admin_users')
+            .upsert({
+              id: userData.user.id,
+              email: email,
+              name: role === 'admin' ? 'Super Admin' : role === 'sales' ? 'Sales Account' : 'Support Staff',
+              role: role === 'admin' ? 'super_admin' : role,
+              permissions: role === 'admin' ? ['all'] : role === 'sales' ? 
+                ['view_clients', 'view_sales', 'edit_clients', 'view_reports'] : 
+                ['view_clients', 'view_tickets', 'reply_tickets', 'impersonate'],
+              profile_image: `https://ui-avatars.com/api/?name=${role === 'admin' ? 'Super+Admin' : role === 'sales' ? 'Sales+Account' : 'Support+Staff'}&background=2c5cc5&color=fff`
+            });
+          
+          if (insertError) {
+            console.error('Error creating admin user in database:', insertError);
+          }
         }
 
         // Retry login after creating the user
@@ -136,7 +158,7 @@ const AdminLogin: React.FC = () => {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="admin@prime.com"
+                  placeholder="admin@savannahprimeagency.tech"
                   autoComplete="email"
                   {...register('email', {
                     required: 'Email is required',
@@ -170,14 +192,14 @@ const AdminLogin: React.FC = () => {
                 )}
               </div>
               <div className="text-sm bg-muted p-3 rounded-md">
-                <p className="font-medium mb-1">Quick Demo Login</p>
+                <p className="font-medium mb-1">Quick Account Access</p>
                 <div className="space-y-2 mt-2">
                   <Button 
                     type="button" 
                     variant="outline" 
                     size="sm" 
                     className="w-full justify-start"
-                    onClick={() => handleDemoLogin('admin')}
+                    onClick={() => handleProfessionalLogin('admin')}
                   >
                     <Shield className="mr-2 h-4 w-4 text-primary" />
                     Login as Super Admin
@@ -187,7 +209,7 @@ const AdminLogin: React.FC = () => {
                     variant="outline" 
                     size="sm" 
                     className="w-full justify-start"
-                    onClick={() => handleDemoLogin('sales')}
+                    onClick={() => handleProfessionalLogin('sales')}
                   >
                     <Shield className="mr-2 h-4 w-4 text-emerald-500" />
                     Login as Sales Account
@@ -197,7 +219,7 @@ const AdminLogin: React.FC = () => {
                     variant="outline" 
                     size="sm" 
                     className="w-full justify-start"
-                    onClick={() => handleDemoLogin('support')}
+                    onClick={() => handleProfessionalLogin('support')}
                   >
                     <Shield className="mr-2 h-4 w-4 text-blue-500" />
                     Login as Support Staff
