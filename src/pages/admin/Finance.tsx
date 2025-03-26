@@ -48,6 +48,19 @@ const Finance: React.FC = () => {
     { id: '5', customer: 'Michael Wilson', amount: 199, status: 'completed', date: '2023-11-21' },
   ];
   
+  // Helper function to get badge variant based on status
+  const getBadgeVariant = (status: string) => {
+    switch(status) {
+      case 'completed':
+        return 'default';
+      case 'failed':
+        return 'destructive';
+      case 'pending':
+      default:
+        return 'outline';
+    }
+  };
+  
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -242,10 +255,7 @@ const Finance: React.FC = () => {
                         <td className="p-4 align-middle">${transaction.amount}</td>
                         <td className="p-4 align-middle">
                           <Badge
-                            variant={
-                              transaction.status === 'completed' ? 'success' : 
-                              transaction.status === 'failed' ? 'destructive' : 'outline'
-                            }
+                            variant={getBadgeVariant(transaction.status)}
                           >
                             {transaction.status}
                           </Badge>

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
@@ -19,7 +18,7 @@ import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
-import { User } from '@/contexts/AuthContext';
+import { ClientUser } from '@/contexts/AuthContext';
 
 const Settings: React.FC = () => {
   const { currentUser, updateUser } = useAuth();
@@ -83,7 +82,7 @@ const Settings: React.FC = () => {
       // Update user in context
       updateUser({
         name: profileForm.name,
-      } as Partial<User>);
+      } as Partial<ClientUser>);
       
       toast.success('Profile updated successfully');
     } catch (error) {
