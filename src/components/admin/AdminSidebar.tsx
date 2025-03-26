@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
@@ -21,6 +20,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
+import LogoutButton from '@/components/common/LogoutButton';
 
 const AdminSidebar: React.FC = () => {
   const { currentAdmin, logout } = useAdminAuth();
@@ -183,17 +183,7 @@ const AdminSidebar: React.FC = () => {
       </ScrollArea>
 
       <div className="p-4 mt-auto">
-        <Button 
-          variant="ghost" 
-          className={cn(
-            "w-full flex items-center gap-3", 
-            collapsed ? "justify-center" : "justify-start"
-          )}
-          onClick={handleLogout}
-        >
-          <LogOut className="h-5 w-5" />
-          {!collapsed && <span>Log Out</span>}
-        </Button>
+        <LogoutButton adminLogout={true} />
       </div>
     </aside>
   );

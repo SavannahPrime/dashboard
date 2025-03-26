@@ -1,20 +1,14 @@
+
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardFooter, 
-  CardHeader, 
-  CardTitle 
-} from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
 import { serviceOptions } from '@/lib/services-data';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ChevronLeft, ChevronRight, Eye, EyeOff, Globe, LayoutGrid, Cpu, BarChart, Paintbrush, Loader2, Check } from 'lucide-react';
+import { toast } from 'sonner';
 
 const icons: Record<string, React.ReactNode> = {
   'globe': <Globe className="h-6 w-6" />,
@@ -34,6 +28,7 @@ const RegisterForm: React.FC = () => {
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [passwordError, setPasswordError] = useState('');
+  const [registrationError, setRegistrationError] = useState('');
   const { register } = useAuth();
   const navigate = useNavigate();
 
@@ -87,10 +82,12 @@ const RegisterForm: React.FC = () => {
     e.preventDefault();
     
     if (selectedServices.length === 0) {
+      toast.error('Please select at least one service');
       return;
     }
     
     setIsSubmitting(true);
+    setRegistrationError('');
     
     try {
       // Convert service IDs to their title names for the auth context
@@ -100,9 +97,17 @@ const RegisterForm: React.FC = () => {
       }).filter(Boolean);
       
       await register(email, password, name, serviceNames);
+      toast.success('Registration successful! Redirecting to dashboard...');
       navigate('/dashboard');
     } catch (error) {
-      // Error is handled in the AuthContext
+      console.error('Registration error:', error);
+      if (error instanceof Error) {
+        setRegistrationError(error.message);
+        toast.error(`Registration failed: ${error.message}`);
+      } else {
+        setRegistrationError('An unknown error occurred during registration');
+        toast.error('Registration failed. Please try again.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -205,24 +210,30 @@ const RegisterForm: React.FC = () => {
               <p className="text-sm text-muted-foreground">Choose the services you're interested in</p>
             </div>
             
+            {registrationError && (
+              <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md text-destructive text-sm mb-4">
+                {registrationError}
+              </div>
+            )}
+            
             <div className="grid grid-cols-1 gap-4 mb-6">
               {serviceOptions.map((service) => (
-                <Card 
+                <div 
                   key={service.id} 
-                  className={`cursor-pointer transition-all ${
+                  className={`cursor-pointer transition-all border rounded-lg ${
                     selectedServices.includes(service.id) 
                       ? 'border-primary ring-2 ring-primary/20' 
                       : 'hover:border-primary/50'
                   }`}
                   onClick={() => toggleService(service.id)}
                 >
-                  <CardHeader className="pb-2">
+                  <div className="p-4">
                     <div className="flex justify-between items-start">
                       <div className="flex items-center gap-2">
                         <div className="p-2 rounded-full bg-primary/10 text-primary">
                           {icons[service.icon]}
                         </div>
-                        <CardTitle className="text-base">{service.title}</CardTitle>
+                        <h3 className="text-base font-medium">{service.title}</h3>
                       </div>
                       <div className="flex items-center justify-center w-5 h-5 rounded-full border">
                         {selectedServices.includes(service.id) && (
@@ -230,16 +241,14 @@ const RegisterForm: React.FC = () => {
                         )}
                       </div>
                     </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex justify-between items-center">
+                    <div className="mt-2">
                       <p className="text-sm text-muted-foreground">{service.description}</p>
-                      <p className="font-medium">
+                      <p className="font-medium mt-1">
                         ${service.price}/{service.priceUnit}
                       </p>
                     </div>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               ))}
             </div>
             
@@ -274,7 +283,7 @@ const RegisterForm: React.FC = () => {
         
         <div className="text-center text-sm">
           Already have an account?{' '}
-          <Link to="/login" className="text-primary-blue font-medium hover:underline">
+          <Link to="/login" className="text-primary font-medium hover:underline">
             Sign in
           </Link>
         </div>

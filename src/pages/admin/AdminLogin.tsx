@@ -7,13 +7,38 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useForm, SubmitHandler } from 'react-hook-form';
-import { Shield, Lock } from 'lucide-react';
+import { Shield, Lock, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
 type FormValues = {
   email: string;
   password: string;
+};
+
+// Admin credentials
+const ADMIN_CREDENTIALS = {
+  admin: {
+    email: 'admin@savannahprimeagency.tech',
+    password: 'SavannahPrime@Admin2024',
+    name: 'Super Admin',
+    role: 'super_admin',
+    permissions: ['all']
+  },
+  sales: {
+    email: 'sales@savannahprimeagency.tech',
+    password: 'SavannahPrime@Sales2024',
+    name: 'Sales Account',
+    role: 'sales',
+    permissions: ['view_clients', 'view_sales', 'edit_clients', 'view_reports']
+  },
+  support: {
+    email: 'support@savannahprimeagency.tech',
+    password: 'SavannahPrime@Support2024',
+    name: 'Support Staff',
+    role: 'support',
+    permissions: ['view_clients', 'view_tickets', 'reply_tickets', 'impersonate']
+  }
 };
 
 const AdminLogin: React.FC = () => {
@@ -26,7 +51,6 @@ const AdminLogin: React.FC = () => {
     try {
       await login(data.email, data.password);
     } catch (error) {
-      // Error is already handled in the login function
       console.error('Login error:', error);
     }
   };
@@ -46,67 +70,78 @@ const AdminLogin: React.FC = () => {
   }, [isAuthenticated, isLoading, currentAdmin, navigate]);
   
   const handleProfessionalLogin = async (role: string) => {
-    let email = '';
-    let password = '';
+    const credentials = ADMIN_CREDENTIALS[role as keyof typeof ADMIN_CREDENTIALS];
     
-    switch (role) {
-      case 'admin':
-        email = 'admin@savannahprimeagency.tech';
-        password = 'SavannahPrime@Admin2024';
-        break;
-      case 'sales':
-        email = 'sales@savannahprimeagency.tech';
-        password = 'SavannahPrime@Sales2024';
-        break;
-      case 'support':
-        email = 'support@savannahprimeagency.tech';
-        password = 'SavannahPrime@Support2024';
-        break;
-      default:
-        return;
+    if (!credentials) {
+      toast.error('Invalid role selected');
+      return;
     }
     
     try {
-      // Directly perform login without checking email verification
-      await login(email, password);
-    } catch (error) {
-      console.error('Login error:', error);
-      // If login fails, attempt to create the user and log in again
-      try {
-        const { error: authError } = await supabase.auth.signUp({
-          email,
-          password,
+      toast.loading('Logging in as ' + credentials.name);
+      
+      // First try to sign in
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: credentials.email,
+        password: credentials.password,
+      });
+      
+      // If sign in fails, create the account
+      if (signInError) {
+        console.log('Sign in failed, creating account:', signInError.message);
+        
+        // Create account in auth
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          email: credentials.email,
+          password: credentials.password,
         });
-
-        if (authError && !authError.message.includes('already registered')) {
-          throw authError;
+        
+        if (signUpError) {
+          throw signUpError;
         }
-
-        // Update admin_users table with new user info
-        const { data: userData } = await supabase.auth.getUser();
-        if (userData && userData.user) {
+        
+        // Create record in admin_users table
+        if (signUpData.user) {
           const { error: insertError } = await supabase
             .from('admin_users')
             .upsert({
-              id: userData.user.id,
-              email: email,
-              name: role === 'admin' ? 'Super Admin' : role === 'sales' ? 'Sales Account' : 'Support Staff',
-              role: role === 'admin' ? 'super_admin' : role,
-              permissions: role === 'admin' ? ['all'] : role === 'sales' ? 
-                ['view_clients', 'view_sales', 'edit_clients', 'view_reports'] : 
-                ['view_clients', 'view_tickets', 'reply_tickets', 'impersonate'],
-              profile_image: `https://ui-avatars.com/api/?name=${role === 'admin' ? 'Super+Admin' : role === 'sales' ? 'Sales+Account' : 'Support+Staff'}&background=2c5cc5&color=fff`
+              id: signUpData.user.id,
+              email: credentials.email,
+              name: credentials.name,
+              role: credentials.role,
+              permissions: credentials.permissions,
+              profile_image: `https://ui-avatars.com/api/?name=${credentials.name.replace(' ', '+')}&background=2c5cc5&color=fff`
             });
           
           if (insertError) {
             console.error('Error creating admin user in database:', insertError);
+            throw insertError;
           }
         }
-
-        // Retry login after creating the user
-        await login(email, password);
-      } catch (secondError) {
-        console.error('Second login attempt failed:', secondError);
+        
+        // Try sign in again after creating account
+        const { error: secondSignInError } = await supabase.auth.signInWithPassword({
+          email: credentials.email,
+          password: credentials.password,
+        });
+        
+        if (secondSignInError) {
+          throw secondSignInError;
+        }
+      }
+      
+      // Finally call the login function in the context
+      await login(credentials.email, credentials.password);
+      toast.success(`Welcome, ${credentials.name}!`);
+      
+    } catch (error) {
+      console.error('Professional login error:', error);
+      toast.dismiss();
+      
+      if (error instanceof Error) {
+        toast.error(`Login failed: ${error.message}`);
+      } else {
+        toast.error('Login failed. Please try again.');
       }
     }
   };
@@ -231,7 +266,7 @@ const AdminLogin: React.FC = () => {
               <Button type="submit" className="w-full" disabled={isSubmitting}>
                 {isSubmitting ? (
                   <>
-                    <span className="animate-spin mr-2">◌</span>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Logging in...
                   </>
                 ) : (

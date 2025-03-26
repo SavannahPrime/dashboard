@@ -7,6 +7,18 @@ import { useAuth } from '@/contexts/AuthContext';
 const Register: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
   
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+        <div className="text-center">
+          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Checking authentication status...</p>
+        </div>
+      </div>
+    );
+  }
+  
   // Redirect if already authenticated
   if (isAuthenticated && !isLoading) {
     return <Navigate to="/dashboard" replace />;

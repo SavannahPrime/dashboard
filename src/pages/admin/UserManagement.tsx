@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -41,7 +40,6 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination';
 
-// Sample user data
 const users = [
   {
     id: '1',
@@ -149,19 +147,15 @@ const UserManagement: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
   
-  // Filter users based on search query and filters
   const filteredUsers = users.filter(user => {
-    // Search query filter
     const matchesSearch = 
       user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.email.toLowerCase().includes(searchQuery.toLowerCase());
     
-    // Status filter
     const matchesStatus = 
       selectedStatus === 'all' || 
       user.status === selectedStatus;
     
-    // Service filter
     const matchesService = 
       selectedService === 'all' ||
       user.services.includes(selectedService);
@@ -169,12 +163,10 @@ const UserManagement: React.FC = () => {
     return matchesSearch && matchesStatus && matchesService;
   });
   
-  // Get current page users
   const indexOfLastUser = currentPage * itemsPerPage;
   const indexOfFirstUser = indexOfLastUser - itemsPerPage;
   const currentUsers = filteredUsers.slice(indexOfFirstUser, indexOfLastUser);
   
-  // Format date to readable format
   const formatDate = (dateString: string) => {
     const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'short', day: 'numeric' };
     return new Date(dateString).toLocaleDateString(undefined, options);
@@ -330,15 +322,33 @@ const UserManagement: React.FC = () => {
                               <DropdownMenuContent align="end">
                                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem>View Profile</DropdownMenuItem>
-                                <DropdownMenuItem>Edit User</DropdownMenuItem>
-                                <DropdownMenuItem>Subscription Details</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => {
+                                  toast.success(`Viewing profile for ${user.name}`);
+                                  // You would typically navigate to a user profile page here
+                                }}>View Profile</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => {
+                                  toast.success(`Editing user ${user.name}`);
+                                  // You would typically open a modal or navigate to an edit page here
+                                }}>Edit User</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => {
+                                  toast.success(`Opening subscription details for ${user.name}`);
+                                  // You would typically open a modal with subscription details here
+                                }}>Subscription Details</DropdownMenuItem>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem className="text-amber-600">Send Warning</DropdownMenuItem>
+                                <DropdownMenuItem className="text-amber-600" onClick={() => {
+                                  toast.warning(`Warning sent to ${user.name}`);
+                                  // You would typically send a warning notification here
+                                }}>Send Warning</DropdownMenuItem>
                                 {user.status === 'active' ? (
-                                  <DropdownMenuItem className="text-red-600">Suspend User</DropdownMenuItem>
+                                  <DropdownMenuItem className="text-red-600" onClick={() => {
+                                    toast.warning(`User ${user.name} has been suspended.`);
+                                    // You would typically update the user status in the database here
+                                  }}>Suspend User</DropdownMenuItem>
                                 ) : (
-                                  <DropdownMenuItem className="text-green-600">Activate User</DropdownMenuItem>
+                                  <DropdownMenuItem className="text-green-600" onClick={() => {
+                                    toast.success(`User ${user.name} has been activated.`);
+                                    // You would typically update the user status in the database here
+                                  }}>Activate User</DropdownMenuItem>
                                 )}
                               </DropdownMenuContent>
                             </DropdownMenu>
@@ -401,17 +411,14 @@ const UserManagement: React.FC = () => {
             </TabsContent>
             
             <TabsContent value="active">
-              {/* Active users content - similar to "all" but filtered */}
               <p>Active users will be shown here</p>
             </TabsContent>
             
             <TabsContent value="inactive">
-              {/* Inactive users content */}
               <p>Inactive users will be shown here</p>
             </TabsContent>
             
             <TabsContent value="suspended">
-              {/* Suspended users content */}
               <p>Suspended users will be shown here</p>
             </TabsContent>
           </Tabs>
@@ -422,3 +429,4 @@ const UserManagement: React.FC = () => {
 };
 
 export default UserManagement;
+
