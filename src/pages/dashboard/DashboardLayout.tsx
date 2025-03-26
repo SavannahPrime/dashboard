@@ -1,6 +1,6 @@
 
 import React, { Suspense } from 'react';
-import { Outlet, Navigate } from 'react-router-dom';
+import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import DashboardSidebar from '@/components/dashboard/DashboardSidebar';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,6 +9,14 @@ import { Toaster } from 'sonner';
 
 const DashboardLayout: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
+  const location = useLocation();
+  
+  // Generate page title based on the current path
+  const getPageTitle = () => {
+    const path = location.pathname.split('/').pop() || '';
+    if (path === 'dashboard' || path === '') return 'Dashboard';
+    return path.charAt(0).toUpperCase() + path.slice(1);
+  };
   
   if (isLoading) {
     return (
@@ -27,7 +35,7 @@ const DashboardLayout: React.FC = () => {
     <div className="flex h-screen overflow-hidden bg-background">
       <DashboardSidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <DashboardHeader />
+        <DashboardHeader pageTitle={getPageTitle()} />
         <main className="flex-1 overflow-auto p-6">
           <Suspense fallback={
             <div className="flex items-center justify-center h-full">

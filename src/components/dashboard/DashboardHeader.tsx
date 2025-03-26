@@ -35,7 +35,7 @@ const notifications = [
   }
 ];
 
-const DashboardHeader: React.FC<{ pageTitle: string }> = ({ pageTitle }) => {
+const DashboardHeader: React.FC<{ pageTitle?: string }> = ({ pageTitle = "Dashboard" }) => {
   const { currentUser } = useAuth();
   
   return (
