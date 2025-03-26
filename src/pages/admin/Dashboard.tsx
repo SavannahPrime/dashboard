@@ -1,16 +1,35 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { Users, CreditCard, Package, ArrowUpRight, ArrowDownRight, DollarSign } from 'lucide-react';
+import { ChartContainer } from '@/components/ui/chart';
+import { Users, CreditCard, Package, ArrowUpRight, ArrowDownRight, DollarSign, RefreshCw } from 'lucide-react';
 import { BarChart, Bar, PieChart, Pie, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import { supabase } from '@/integrations/supabase/client';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 
 const AdminDashboard: React.FC = () => {
   const { currentAdmin } = useAdminAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const [userStats, setUserStats] = useState({
+    total: 0,
+    active: 0,
+    newThisMonth: 0,
+    growth: 0
+  });
+  const [revenueStats, setRevenueStats] = useState({
+    total: 0,
+    growth: 0
+  });
+  const [subscriptionStats, setSubscriptionStats] = useState({
+    total: 0,
+    growth: 0
+  });
+  const [recentSignups, setRecentSignups] = useState<any[]>([]);
   
-  // Sample data for charts
+  // Sample data for charts - we'll replace some of this with real data
   const userActivityData = [
     { name: 'Jan', users: 45 },
     { name: 'Feb', users: 52 },
@@ -51,14 +70,6 @@ const AdminDashboard: React.FC = () => {
   
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
   
-  const recentSignups = [
-    { id: 1, name: 'John Doe', email: 'john@example.com', service: 'Website Development', date: '2 hours ago' },
-    { id: 2, name: 'Sarah Smith', email: 'sarah@example.com', service: 'Digital Marketing', date: '4 hours ago' },
-    { id: 3, name: 'Michael Johnson', email: 'michael@example.com', service: 'CMS Development', date: '1 day ago' },
-    { id: 4, name: 'Emily Brown', email: 'emily@example.com', service: 'Branding & Design', date: '1 day ago' },
-    { id: 5, name: 'David Wilson', email: 'david@example.com', service: 'AI Automation', date: '2 days ago' },
-  ];
-  
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -67,14 +78,173 @@ const AdminDashboard: React.FC = () => {
       maximumFractionDigits: 0,
     }).format(value);
   };
+
+  const fetchDashboardData = async () => {
+    setIsLoading(true);
+    try {
+      // Fetch client data
+      const { data: clientsData, error: clientsError } = await supabase
+        .from('clients')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (clientsError) throw clientsError;
+      
+      // Calculate statistics
+      const now = new Date();
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+      const firstDayOfMonth = new Date(currentYear, currentMonth, 1).toISOString();
+      
+      const newClientsThisMonth = clientsData?.filter(
+        client => client.created_at >= firstDayOfMonth
+      ).length;
+      
+      const totalClients = clientsData?.length || 0;
+      const activeClients = clientsData?.filter(client => client.status === 'active').length || 0;
+      
+      // Get previous month stats for comparison
+      const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+      const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+      const firstDayLastMonth = new Date(lastMonthYear, lastMonth, 1).toISOString();
+      const lastDayLastMonth = new Date(currentYear, currentMonth, 0).toISOString();
+      
+      const { data: lastMonthData } = await supabase
+        .from('clients')
+        .select('count')
+        .gte('created_at', firstDayLastMonth)
+        .lte('created_at', lastDayLastMonth)
+        .single();
+      
+      const lastMonthCount = lastMonthData?.count || 0;
+      const growthPercentage = lastMonthCount > 0 
+        ? ((newClientsThisMonth - lastMonthCount) / lastMonthCount) * 100 
+        : 100;
+      
+      // Set stats
+      setUserStats({
+        total: totalClients,
+        active: activeClients,
+        newThisMonth: newClientsThisMonth,
+        growth: growthPercentage
+      });
+      
+      // Fetch transaction data for revenue stats
+      const { data: transactionsData, error: transactionsError } = await supabase
+        .from('transactions')
+        .select('amount, date')
+        .eq('status', 'completed')
+        .order('date', { ascending: false });
+      
+      if (transactionsError) throw transactionsError;
+      
+      const totalRevenue = transactionsData?.reduce((sum, transaction) => sum + (parseFloat(transaction.amount) || 0), 0) || 0;
+      
+      // Calculate revenue growth (simplified)
+      setRevenueStats({
+        total: totalRevenue,
+        growth: 18.5 // Placeholder - would calculate real growth in production
+      });
+      
+      // Get recent signups
+      const recentSignupsData = clientsData?.slice(0, 5).map(client => {
+        const createdDate = new Date(client.created_at);
+        const now = new Date();
+        const diffTime = Math.abs(now.getTime() - createdDate.getTime());
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        
+        let timeAgo;
+        if (diffDays === 0) {
+          const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
+          timeAgo = diffHours === 0 ? 'Just now' : `${diffHours} hours ago`;
+        } else if (diffDays === 1) {
+          timeAgo = 'Yesterday';
+        } else {
+          timeAgo = `${diffDays} days ago`;
+        }
+        
+        return {
+          id: client.id,
+          name: client.name,
+          email: client.email,
+          service: client.selected_services ? client.selected_services[0] : 'No service selected',
+          date: timeAgo
+        };
+      });
+      
+      setRecentSignups(recentSignupsData || []);
+      
+      // Log analytics data for this dashboard view
+      await supabase.from('analytics').insert({
+        type: 'dashboard_view',
+        data: {
+          admin_id: currentAdmin?.id,
+          admin_role: currentAdmin?.role,
+          view_type: 'admin_dashboard'
+        },
+        period: 'daily'
+      });
+      
+      toast.success('Dashboard data updated successfully');
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+      toast.error('Failed to load dashboard data');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  useEffect(() => {
+    fetchDashboardData();
+    
+    // Set up realtime subscription for new client signups
+    const channel = supabase
+      .channel('public:clients')
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'clients' 
+      }, payload => {
+        toast.info('New client just signed up!');
+        fetchDashboardData(); // Refresh data when new client signs up
+      })
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentAdmin?.id]);
+  
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-background border border-border p-2 rounded-md shadow-md">
+          <p className="font-medium">{payload[0].name}</p>
+          <p className="text-sm">{`${payload[0].value} clients (${(payload[0].payload.percent * 100).toFixed(0)}%)`}</p>
+        </div>
+      );
+    }
+    return null;
+  };
   
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
-        <p className="text-muted-foreground">
-          Welcome back, <span className="font-medium">{currentAdmin?.name}</span>
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="text-muted-foreground">
+            Welcome back, <span className="font-medium">{currentAdmin?.name}</span>
+          </p>
+          <Button 
+            size="sm" 
+            variant="outline" 
+            onClick={fetchDashboardData} 
+            disabled={isLoading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
       </div>
       
       <Tabs defaultValue="overview" className="space-y-6">
@@ -93,10 +263,20 @@ const AdminDashboard: React.FC = () => {
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">2,853</div>
+                <div className="text-2xl font-bold">{userStats.total}</div>
                 <div className="flex items-center text-xs text-muted-foreground mt-1">
-                  <ArrowUpRight className="mr-1 h-4 w-4 text-green-500" />
-                  <span className="text-green-500 font-medium">+14.2%</span> from last month
+                  {userStats.growth > 0 ? (
+                    <>
+                      <ArrowUpRight className="mr-1 h-4 w-4 text-green-500" />
+                      <span className="text-green-500 font-medium">+{userStats.growth.toFixed(1)}%</span>
+                    </>
+                  ) : (
+                    <>
+                      <ArrowDownRight className="mr-1 h-4 w-4 text-red-500" />
+                      <span className="text-red-500 font-medium">{userStats.growth.toFixed(1)}%</span>
+                    </>
+                  )}
+                  {' '}from last month
                 </div>
               </CardContent>
             </Card>
@@ -107,10 +287,10 @@ const AdminDashboard: React.FC = () => {
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{formatCurrency(642500)}</div>
+                <div className="text-2xl font-bold">{formatCurrency(revenueStats.total)}</div>
                 <div className="flex items-center text-xs text-muted-foreground mt-1">
                   <ArrowUpRight className="mr-1 h-4 w-4 text-green-500" />
-                  <span className="text-green-500 font-medium">+18.5%</span> from last month
+                  <span className="text-green-500 font-medium">+{revenueStats.growth}%</span> from last month
                 </div>
               </CardContent>
             </Card>
@@ -121,7 +301,7 @@ const AdminDashboard: React.FC = () => {
                 <CreditCard className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">1,294</div>
+                <div className="text-2xl font-bold">{userStats.active}</div>
                 <div className="flex items-center text-xs text-muted-foreground mt-1">
                   <ArrowUpRight className="mr-1 h-4 w-4 text-green-500" />
                   <span className="text-green-500 font-medium">+5.2%</span> from last month
@@ -263,14 +443,22 @@ const AdminDashboard: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {recentSignups.map((user) => (
-                      <tr key={user.id} className="border-t border-border hover:bg-muted/50">
-                        <td className="py-3">{user.name}</td>
-                        <td className="py-3">{user.email}</td>
-                        <td className="py-3">{user.service}</td>
-                        <td className="py-3 text-right text-muted-foreground text-sm">{user.date}</td>
+                    {recentSignups.length > 0 ? (
+                      recentSignups.map((user) => (
+                        <tr key={user.id} className="border-t border-border hover:bg-muted/50">
+                          <td className="py-3">{user.name}</td>
+                          <td className="py-3">{user.email}</td>
+                          <td className="py-3">{user.service}</td>
+                          <td className="py-3 text-right text-muted-foreground text-sm">{user.date}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={4} className="py-4 text-center text-muted-foreground">
+                          No recent signups found
+                        </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -308,19 +496,6 @@ const AdminDashboard: React.FC = () => {
       </Tabs>
     </div>
   );
-};
-
-// Custom tooltip component for the pie chart
-const CustomTooltip = ({ active, payload }: any) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-background border border-border p-2 rounded-md shadow-md">
-        <p className="font-medium">{payload[0].name}</p>
-        <p className="text-sm">{`${payload[0].value} clients (${(payload[0].payload.percent * 100).toFixed(0)}%)`}</p>
-      </div>
-    );
-  }
-  return null;
 };
 
 export default AdminDashboard;

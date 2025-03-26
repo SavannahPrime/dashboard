@@ -1,423 +1,857 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Package, PlusCircle, Settings, Trash2, Edit, Search, Filter } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogFooter, 
+  DialogHeader, 
+  DialogTitle 
+} from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu';
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from '@/components/ui/table';
+import { Search, Plus, Edit, Trash2, MoreHorizontal, Eye, PlusCircle, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { toast } from 'sonner';
 
-// Sample service data
-const servicesList = [
-  { 
-    id: '1', 
-    name: 'SEO Standard Package', 
-    description: 'Basic SEO optimization for small businesses', 
-    category: 'SEO', 
-    price: 299, 
-    active: true, 
-    billingCycle: 'monthly' 
-  },
-  { 
-    id: '2', 
-    name: 'SEO Premium Package', 
-    description: 'Advanced SEO optimization with content strategy', 
-    category: 'SEO', 
-    price: 599, 
-    active: true, 
-    billingCycle: 'monthly' 
-  },
-  { 
-    id: '3', 
-    name: 'Web Development Basic', 
-    description: 'Simple website with up to 5 pages', 
-    category: 'Development', 
-    price: 999, 
-    active: true, 
-    billingCycle: 'one-time' 
-  },
-  { 
-    id: '4', 
-    name: 'Web Development Premium', 
-    description: 'Full website with CMS and e-commerce capabilities', 
-    category: 'Development', 
-    price: 2999, 
-    active: true, 
-    billingCycle: 'one-time' 
-  },
-  { 
-    id: '5', 
-    name: 'Social Media Management', 
-    description: 'Full management of all social media accounts', 
-    category: 'Social', 
-    price: 499, 
-    active: true, 
-    billingCycle: 'monthly' 
-  },
-  { 
-    id: '6', 
-    name: 'Content Creation Plan', 
-    description: 'Weekly blog posts and content strategy', 
-    category: 'Content', 
-    price: 399, 
-    active: false, 
-    billingCycle: 'monthly' 
-  },
-];
+interface Service {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  features: string[];
+  category: string;
+  active: boolean;
+  created_at: string;
+}
 
-const Services: React.FC = () => {
+const ServiceManagement: React.FC = () => {
   const { currentAdmin } = useAdminAuth();
-  const [services, setServices] = useState(servicesList);
+  const [services, setServices] = useState<Service[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  const [activeFilter, setActiveFilter] = useState('all');
-  const [editingService, setEditingService] = useState<any>(null);
-  
-  // Filter the services based on search and filters
-  const filteredServices = services.filter(service => {
-    const matchesSearch = service.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         service.description.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesCategory = categoryFilter === 'all' || service.category === categoryFilter;
-    const matchesActive = activeFilter === 'all' || 
-                         (activeFilter === 'active' && service.active) || 
-                         (activeFilter === 'inactive' && !service.active);
-    
-    return matchesSearch && matchesCategory && matchesActive;
+  const [isLoading, setIsLoading] = useState(false);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [selectedService, setSelectedService] = useState<Service | null>(null);
+  const [newFeature, setNewFeature] = useState('');
+  const [newService, setNewService] = useState<Partial<Service>>({
+    name: '',
+    description: '',
+    price: 0,
+    features: [],
+    category: '',
+    active: true
   });
   
-  const handleAddService = () => {
-    toast.info('This would connect to Supabase to add a new service');
-  };
-  
-  const handleEditService = (service: any) => {
-    setEditingService(service);
-  };
-  
-  const handleSaveService = () => {
-    if (editingService) {
-      setServices(prevServices => 
-        prevServices.map(service => service.id === editingService.id ? editingService : service)
-      );
-      toast.success('Service updated successfully');
-      setEditingService(null);
+  const fetchServices = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('services')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      setServices(data || []);
+      
+      // Log analytics
+      await supabase.from('analytics').insert({
+        type: 'admin_action',
+        data: {
+          admin_id: currentAdmin?.id,
+          action: 'fetch_services',
+          count: data?.length || 0
+        },
+        period: 'daily'
+      });
+      
+    } catch (error) {
+      console.error('Error fetching services:', error);
+      toast.error('Failed to load services');
+    } finally {
+      setIsLoading(false);
     }
   };
   
-  const handleToggleService = (id: string) => {
-    setServices(prevServices => 
-      prevServices.map(service => 
-        service.id === id ? { ...service, active: !service.active } : service
-      )
-    );
-    toast.success('Service status updated');
+  useEffect(() => {
+    fetchServices();
+    
+    // Set up realtime subscription for service updates
+    const channel = supabase
+      .channel('public:services')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'services' 
+      }, () => {
+        fetchServices(); // Refresh when services are updated
+      })
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [currentAdmin?.id]);
+  
+  const handleAddService = async () => {
+    if (!newService.name || !newService.price) {
+      toast.error('Name and price are required');
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('services')
+        .insert({
+          name: newService.name,
+          description: newService.description,
+          price: newService.price,
+          features: newService.features,
+          category: newService.category,
+          active: newService.active
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      toast.success('Service added successfully');
+      setIsAddDialogOpen(false);
+      resetNewService();
+      fetchServices();
+      
+      // Log the action
+      await supabase.from('analytics').insert({
+        type: 'admin_action',
+        data: {
+          admin_id: currentAdmin?.id,
+          action: 'add_service',
+          service_id: data.id
+        },
+        period: 'daily'
+      });
+      
+    } catch (error) {
+      console.error('Error adding service:', error);
+      toast.error('Failed to add service');
+    } finally {
+      setIsLoading(false);
+    }
   };
   
-  const handleDeleteService = (id: string) => {
-    setServices(prevServices => prevServices.filter(service => service.id !== id));
-    toast.success('Service deleted successfully');
+  const handleUpdateService = async () => {
+    if (!selectedService) return;
+    
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('services')
+        .update({
+          name: selectedService.name,
+          description: selectedService.description,
+          price: selectedService.price,
+          features: selectedService.features,
+          category: selectedService.category,
+          active: selectedService.active
+        })
+        .eq('id', selectedService.id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      toast.success('Service updated successfully');
+      setIsEditDialogOpen(false);
+      setSelectedService(null);
+      fetchServices();
+      
+      // Log the action
+      await supabase.from('analytics').insert({
+        type: 'admin_action',
+        data: {
+          admin_id: currentAdmin?.id,
+          action: 'update_service',
+          service_id: data.id
+        },
+        period: 'daily'
+      });
+      
+    } catch (error) {
+      console.error('Error updating service:', error);
+      toast.error('Failed to update service');
+    } finally {
+      setIsLoading(false);
+    }
   };
   
-  // Get unique categories for the filter
-  const categories = ['all', ...new Set(services.map(service => service.category))];
+  const handleDeleteService = async () => {
+    if (!selectedService) return;
+    
+    setIsLoading(true);
+    try {
+      const { error } = await supabase
+        .from('services')
+        .delete()
+        .eq('id', selectedService.id);
+      
+      if (error) throw error;
+      
+      toast.success('Service deleted successfully');
+      setIsDeleteDialogOpen(false);
+      setSelectedService(null);
+      fetchServices();
+      
+      // Log the action
+      await supabase.from('analytics').insert({
+        type: 'admin_action',
+        data: {
+          admin_id: currentAdmin?.id,
+          action: 'delete_service',
+          service_id: selectedService.id
+        },
+        period: 'daily'
+      });
+      
+    } catch (error) {
+      console.error('Error deleting service:', error);
+      toast.error('Failed to delete service');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const handleToggleActive = async (service: Service) => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('services')
+        .update({ active: !service.active })
+        .eq('id', service.id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      toast.success(`Service ${data.active ? 'activated' : 'deactivated'} successfully`);
+      fetchServices();
+      
+      // Log the action
+      await supabase.from('analytics').insert({
+        type: 'admin_action',
+        data: {
+          admin_id: currentAdmin?.id,
+          action: 'toggle_service_status',
+          service_id: service.id,
+          new_status: data.active ? 'active' : 'inactive'
+        },
+        period: 'daily'
+      });
+      
+    } catch (error) {
+      console.error('Error toggling service status:', error);
+      toast.error('Failed to update service status');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  const addFeature = () => {
+    if (!newFeature.trim()) return;
+    if (isEditDialogOpen && selectedService) {
+      setSelectedService({
+        ...selectedService,
+        features: [...(selectedService.features || []), newFeature.trim()]
+      });
+    } else {
+      setNewService({
+        ...newService,
+        features: [...(newService.features || []), newFeature.trim()]
+      });
+    }
+    setNewFeature('');
+  };
+  
+  const removeFeature = (index: number) => {
+    if (isEditDialogOpen && selectedService) {
+      const updatedFeatures = [...(selectedService.features || [])];
+      updatedFeatures.splice(index, 1);
+      setSelectedService({
+        ...selectedService,
+        features: updatedFeatures
+      });
+    } else {
+      const updatedFeatures = [...(newService.features || [])];
+      updatedFeatures.splice(index, 1);
+      setNewService({
+        ...newService,
+        features: updatedFeatures
+      });
+    }
+  };
+  
+  const resetNewService = () => {
+    setNewService({
+      name: '',
+      description: '',
+      price: 0,
+      features: [],
+      category: '',
+      active: true
+    });
+  };
+  
+  const filteredServices = services.filter(service =>
+    service.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    service.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    service.category?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+  
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(price);
+  };
   
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Service Configuration</h1>
-          <p className="text-muted-foreground">
-            Manage service offerings and pricing
-          </p>
-        </div>
-        
-        <Button onClick={handleAddService}>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Add Service
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold tracking-tight">Service Management</h1>
+        <Button onClick={() => setIsAddDialogOpen(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Add New Service
         </Button>
       </div>
       
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="flex items-center gap-2 flex-1">
-          <div className="relative flex-1">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input 
-              type="search" 
-              placeholder="Search services..." 
-              className="pl-8" 
-              value={searchQuery} 
-              onChange={(e) => setSearchQuery(e.target.value)} 
-            />
+      <Card>
+        <CardHeader>
+          <CardTitle>Services</CardTitle>
+          <CardDescription>
+            Manage your service offerings, pricing, and features.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex justify-between mb-6">
+            <div className="relative w-[300px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search services..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9"
+              />
+            </div>
           </div>
-        </div>
-        
-        <div className="flex gap-2">
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent>
-              {categories.map(category => (
-                <SelectItem key={category} value={category}>
-                  {category === 'all' ? 'All Categories' : category}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
           
-          <Select value={activeFilter} onValueChange={setActiveFilter}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="active">Active Only</SelectItem>
-              <SelectItem value="inactive">Inactive Only</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-      
-      <Tabs defaultValue="services">
-        <TabsList>
-          <TabsTrigger value="services">Services List</TabsTrigger>
-          <TabsTrigger value="categories">Categories</TabsTrigger>
-          <TabsTrigger value="analytics">Service Analytics</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="services">
-          <Card>
-            <CardHeader>
-              <CardTitle>Available Services</CardTitle>
-              <CardDescription>Manage your service offerings</CardDescription>
-            </CardHeader>
-            <CardContent>
+          {isLoading ? (
+            <div className="flex justify-center items-center py-10">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <div className="rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Name</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Price</TableHead>
-                    <TableHead>Billing</TableHead>
+                    <TableHead>Features</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredServices.map((service) => (
-                    <TableRow key={service.id}>
-                      <TableCell className="font-medium">
-                        {service.name}
-                        <div className="text-xs text-muted-foreground">{service.description}</div>
-                      </TableCell>
-                      <TableCell>{service.category}</TableCell>
-                      <TableCell>${service.price}</TableCell>
-                      <TableCell>
-                        {service.billingCycle === 'monthly' ? 'Monthly' : 'One-time'}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={service.active ? "default" : "secondary"}>
-                          {service.active ? 'Active' : 'Inactive'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button variant="outline" size="icon" onClick={() => handleEditService(service)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button variant="outline" size="icon" onClick={() => handleToggleService(service.id)}>
-                            <Settings className="h-4 w-4" />
-                          </Button>
-                          <Button variant="outline" size="icon" onClick={() => handleDeleteService(service.id)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                  {filteredServices.length > 0 ? (
+                    filteredServices.map((service) => (
+                      <TableRow key={service.id}>
+                        <TableCell className="font-medium">{service.name}</TableCell>
+                        <TableCell>{service.category || 'Uncategorized'}</TableCell>
+                        <TableCell>{formatPrice(service.price)}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {service.features && service.features.length > 0 ? (
+                              <Badge variant="outline" className="truncate max-w-[150px]">
+                                {service.features.length} features
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">No features</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={service.active ? "success" : "secondary"}>
+                            {service.active ? 'Active' : 'Inactive'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => {
+                                setSelectedService(service);
+                                setIsViewDialogOpen(true);
+                              }}>
+                                <Eye className="h-4 w-4 mr-2" />
+                                View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => {
+                                setSelectedService(service);
+                                setIsEditDialogOpen(true);
+                              }}>
+                                <Edit className="h-4 w-4 mr-2" />
+                                Edit Service
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => handleToggleActive(service)}>
+                                <Badge variant={service.active ? "outline" : "secondary"} className="mr-2">
+                                  {service.active ? 'Deactivate' : 'Activate'}
+                                </Badge>
+                                {service.active ? 'Deactivate' : 'Activate'} Service
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                className="text-red-600" 
+                                onClick={() => {
+                                  setSelectedService(service);
+                                  setIsDeleteDialogOpen(true);
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete Service
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-4 text-muted-foreground">
+                        No services found
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
               </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="categories">
-          <Card>
-            <CardHeader>
-              <CardTitle>Service Categories</CardTitle>
-              <CardDescription>Manage and organize service categories</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {Array.from(new Set(services.map(s => s.category))).map(category => (
-                  <Card key={category}>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg">{category}</CardTitle>
-                      <CardDescription>
-                        {services.filter(s => s.category === category).length} services
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="pb-2">
-                      <ul className="text-sm space-y-1">
-                        {services.filter(s => s.category === category).map(service => (
-                          <li key={service.id} className="flex items-center justify-between">
-                            <span>{service.name}</span>
-                            <Badge variant={service.active ? "default" : "secondary"}>
-                              {service.active ? 'Active' : 'Inactive'}
-                            </Badge>
-                          </li>
-                        ))}
-                      </ul>
-                    </CardContent>
-                    <CardFooter>
-                      <Button variant="outline" size="sm" className="w-full">Manage Category</Button>
-                    </CardFooter>
-                  </Card>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="analytics">
-          <Card>
-            <CardHeader>
-              <CardTitle>Service Analytics</CardTitle>
-              <CardDescription>Performance metrics for services</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {Array.from(new Set(services.map(s => s.category))).map(category => (
-                  <Card key={category}>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-lg">{category}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-sm text-muted-foreground">Subscribers</span>
-                          <span className="font-medium">{Math.floor(Math.random() * 100) + 20}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm text-muted-foreground">Revenue</span>
-                          <span className="font-medium">${Math.floor(Math.random() * 10000) + 1000}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm text-muted-foreground">Growth</span>
-                          <span className="font-medium text-green-500">+{Math.floor(Math.random() * 20) + 5}%</span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            </div>
+          )}
+        </CardContent>
+      </Card>
       
-      {editingService && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Edit Service</CardTitle>
-            <CardDescription>Update service details</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="name">Service Name</Label>
-                <Input 
-                  id="name" 
-                  value={editingService.name} 
-                  onChange={(e) => setEditingService({...editingService, name: e.target.value})}
+      {/* Add Service Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Add New Service</DialogTitle>
+            <DialogDescription>
+              Create a new service offering for your clients.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="name" className="text-right">
+                Name
+              </Label>
+              <Input
+                id="name"
+                className="col-span-3"
+                value={newService.name}
+                onChange={(e) => setNewService({ ...newService, name: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="price" className="text-right">
+                Price
+              </Label>
+              <Input
+                id="price"
+                type="number"
+                className="col-span-3"
+                value={newService.price}
+                onChange={(e) => setNewService({ ...newService, price: parseFloat(e.target.value) })}
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="category" className="text-right">
+                Category
+              </Label>
+              <Input
+                id="category"
+                className="col-span-3"
+                value={newService.category}
+                onChange={(e) => setNewService({ ...newService, category: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="active" className="text-right">
+                Active
+              </Label>
+              <div className="flex items-center space-x-2 col-span-3">
+                <Switch
+                  id="active"
+                  checked={newService.active}
+                  onCheckedChange={(checked) => setNewService({ ...newService, active: checked })}
                 />
+                <Label htmlFor="active" className="cursor-pointer">
+                  {newService.active ? 'Active' : 'Inactive'}
+                </Label>
               </div>
-              
-              <div className="grid gap-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea 
-                  id="description" 
-                  value={editingService.description} 
-                  onChange={(e) => setEditingService({...editingService, description: e.target.value})}
-                />
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="category">Category</Label>
-                  <Select 
-                    value={editingService.category}
-                    onValueChange={(value) => setEditingService({...editingService, category: value})}
-                  >
-                    <SelectTrigger id="category">
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Array.from(new Set(services.map(s => s.category))).map(category => (
-                        <SelectItem key={category} value={category}>{category}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="grid gap-2">
-                  <Label htmlFor="price">Price ($)</Label>
-                  <Input 
-                    id="price" 
-                    type="number" 
-                    value={editingService.price} 
-                    onChange={(e) => setEditingService({...editingService, price: Number(e.target.value)})}
+            </div>
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label htmlFor="description" className="text-right pt-2">
+                Description
+              </Label>
+              <Textarea
+                id="description"
+                className="col-span-3"
+                rows={4}
+                value={newService.description}
+                onChange={(e) => setNewService({ ...newService, description: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label className="text-right pt-2">Features</Label>
+              <div className="col-span-3 space-y-2">
+                <div className="flex space-x-2">
+                  <Input
+                    value={newFeature}
+                    onChange={(e) => setNewFeature(e.target.value)}
+                    placeholder="Add a feature"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addFeature();
+                      }
+                    }}
                   />
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="icon"
+                    onClick={addFeature}
+                  >
+                    <PlusCircle className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {newService.features && newService.features.map((feature, index) => (
+                    <Badge 
+                      key={index} 
+                      variant="outline"
+                      className="flex items-center gap-1"
+                    >
+                      {feature}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-4 w-4 p-0 text-muted-foreground ml-1 hover:text-foreground"
+                        onClick={() => removeFeature(index)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </Badge>
+                  ))}
                 </div>
               </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="billingCycle">Billing Cycle</Label>
-                  <Select 
-                    value={editingService.billingCycle}
-                    onValueChange={(value) => setEditingService({...editingService, billingCycle: value})}
-                  >
-                    <SelectTrigger id="billingCycle">
-                      <SelectValue placeholder="Select billing cycle" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                      <SelectItem value="yearly">Yearly</SelectItem>
-                      <SelectItem value="one-time">One-time</SelectItem>
-                    </SelectContent>
-                  </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setIsAddDialogOpen(false);
+              resetNewService();
+            }}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddService} disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                'Add Service'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Edit Service Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Edit Service</DialogTitle>
+            <DialogDescription>
+              Update service details and features.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedService && (
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-name" className="text-right">
+                  Name
+                </Label>
+                <Input
+                  id="edit-name"
+                  className="col-span-3"
+                  value={selectedService.name}
+                  onChange={(e) => setSelectedService({ ...selectedService, name: e.target.value })}
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-price" className="text-right">
+                  Price
+                </Label>
+                <Input
+                  id="edit-price"
+                  type="number"
+                  className="col-span-3"
+                  value={selectedService.price}
+                  onChange={(e) => setSelectedService({ ...selectedService, price: parseFloat(e.target.value) })}
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-category" className="text-right">
+                  Category
+                </Label>
+                <Input
+                  id="edit-category"
+                  className="col-span-3"
+                  value={selectedService.category || ''}
+                  onChange={(e) => setSelectedService({ ...selectedService, category: e.target.value })}
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="edit-active" className="text-right">
+                  Active
+                </Label>
+                <div className="flex items-center space-x-2 col-span-3">
+                  <Switch
+                    id="edit-active"
+                    checked={selectedService.active}
+                    onCheckedChange={(checked) => setSelectedService({ ...selectedService, active: checked })}
+                  />
+                  <Label htmlFor="edit-active" className="cursor-pointer">
+                    {selectedService.active ? 'Active' : 'Inactive'}
+                  </Label>
                 </div>
-                
-                <div className="grid gap-2">
-                  <Label htmlFor="status">Status</Label>
-                  <div className="flex items-center space-x-2 pt-2">
-                    <Switch 
-                      id="status" 
-                      checked={editingService.active}
-                      onCheckedChange={(checked) => setEditingService({...editingService, active: checked})}
+              </div>
+              <div className="grid grid-cols-4 items-start gap-4">
+                <Label htmlFor="edit-description" className="text-right pt-2">
+                  Description
+                </Label>
+                <Textarea
+                  id="edit-description"
+                  className="col-span-3"
+                  rows={4}
+                  value={selectedService.description || ''}
+                  onChange={(e) => setSelectedService({ ...selectedService, description: e.target.value })}
+                />
+              </div>
+              <div className="grid grid-cols-4 items-start gap-4">
+                <Label className="text-right pt-2">Features</Label>
+                <div className="col-span-3 space-y-2">
+                  <div className="flex space-x-2">
+                    <Input
+                      value={newFeature}
+                      onChange={(e) => setNewFeature(e.target.value)}
+                      placeholder="Add a feature"
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          addFeature();
+                        }
+                      }}
                     />
-                    <Label htmlFor="status">{editingService.active ? 'Active' : 'Inactive'}</Label>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="icon"
+                      onClick={addFeature}
+                    >
+                      <PlusCircle className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {selectedService.features && selectedService.features.map((feature, index) => (
+                      <Badge 
+                        key={index} 
+                        variant="outline"
+                        className="flex items-center gap-1"
+                      >
+                        {feature}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-4 w-4 p-0 text-muted-foreground ml-1 hover:text-foreground"
+                          onClick={() => removeFeature(index)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </Badge>
+                    ))}
                   </div>
                 </div>
               </div>
             </div>
-          </CardContent>
-          <CardFooter className="flex justify-between">
-            <Button variant="outline" onClick={() => setEditingService(null)}>Cancel</Button>
-            <Button onClick={handleSaveService}>Save Changes</Button>
-          </CardFooter>
-        </Card>
-      )}
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setIsEditDialogOpen(false);
+              setSelectedService(null);
+            }}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateService} disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                'Update Service'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* View Service Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Service Details</DialogTitle>
+            <DialogDescription>
+              Detailed information about the service.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedService && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Name</p>
+                  <p className="font-medium">{selectedService.name}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Price</p>
+                  <p className="font-medium">{formatPrice(selectedService.price)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Category</p>
+                  <p className="font-medium">{selectedService.category || 'Uncategorized'}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Status</p>
+                  <Badge variant={selectedService.active ? "success" : "secondary"}>
+                    {selectedService.active ? 'Active' : 'Inactive'}
+                  </Badge>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-sm text-muted-foreground mb-1">Description</p>
+                  <p className="font-medium">{selectedService.description || 'No description provided'}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-sm text-muted-foreground mb-1">Features</p>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {selectedService.features && selectedService.features.length > 0 ? (
+                      selectedService.features.map((feature, index) => (
+                        <Badge key={index} variant="outline">
+                          {feature}
+                        </Badge>
+                      ))
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No features available</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsViewDialogOpen(false)}>
+              Close
+            </Button>
+            <Button onClick={() => {
+              setIsViewDialogOpen(false);
+              setSelectedService({...selectedService});
+              setIsEditDialogOpen(true);
+            }}>
+              Edit Service
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Delete Service Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Delete Service</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this service? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedService && (
+            <div className="py-4">
+              <p className="mb-2"><span className="font-semibold">Name:</span> {selectedService.name}</p>
+              <p><span className="font-semibold">Price:</span> {formatPrice(selectedService.price)}</p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteService} disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete Service'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
 
-export default Services;
+export default ServiceManagement;
