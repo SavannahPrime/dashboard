@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +8,7 @@ import { BarChart, Bar, PieChart, Pie, LineChart, Line, XAxis, YAxis, CartesianG
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import RecentSignupsSection from '@/components/admin/dashboard/RecentSignupsSection';
 
 const AdminDashboard: React.FC = () => {
   const { currentAdmin } = useAdminAuth();
@@ -29,7 +29,6 @@ const AdminDashboard: React.FC = () => {
   });
   const [recentSignups, setRecentSignups] = useState<any[]>([]);
   
-  // Sample data for charts - we'll replace some of this with real data
   const userActivityData = [
     { name: 'Jan', users: 45 },
     { name: 'Feb', users: 52 },
@@ -82,7 +81,6 @@ const AdminDashboard: React.FC = () => {
   const fetchDashboardData = async () => {
     setIsLoading(true);
     try {
-      // Fetch client data
       const { data: clientsData, error: clientsError } = await supabase
         .from('clients')
         .select('*')
@@ -90,7 +88,6 @@ const AdminDashboard: React.FC = () => {
       
       if (clientsError) throw clientsError;
       
-      // Calculate statistics
       const now = new Date();
       const currentMonth = now.getMonth();
       const currentYear = now.getFullYear();
@@ -103,7 +100,6 @@ const AdminDashboard: React.FC = () => {
       const totalClients = clientsData?.length || 0;
       const activeClients = clientsData?.filter(client => client.status === 'active').length || 0;
       
-      // Get previous month stats for comparison
       const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
       const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
       const firstDayLastMonth = new Date(lastMonthYear, lastMonth, 1).toISOString();
@@ -121,7 +117,6 @@ const AdminDashboard: React.FC = () => {
         ? ((newClientsThisMonth - lastMonthCount) / lastMonthCount) * 100 
         : 100;
       
-      // Set stats
       setUserStats({
         total: totalClients,
         active: activeClients,
@@ -129,7 +124,6 @@ const AdminDashboard: React.FC = () => {
         growth: growthPercentage
       });
       
-      // Fetch transaction data for revenue stats
       const { data: transactionsData, error: transactionsError } = await supabase
         .from('transactions')
         .select('amount, date')
@@ -140,13 +134,11 @@ const AdminDashboard: React.FC = () => {
       
       const totalRevenue = transactionsData?.reduce((sum, transaction) => sum + (parseFloat(transaction.amount) || 0), 0) || 0;
       
-      // Calculate revenue growth (simplified)
       setRevenueStats({
         total: totalRevenue,
-        growth: 18.5 // Placeholder - would calculate real growth in production
+        growth: 18.5
       });
       
-      // Get recent signups
       const recentSignupsData = clientsData?.slice(0, 5).map(client => {
         const createdDate = new Date(client.created_at);
         const now = new Date();
@@ -174,7 +166,6 @@ const AdminDashboard: React.FC = () => {
       
       setRecentSignups(recentSignupsData || []);
       
-      // Log analytics data for this dashboard view
       await supabase.from('analytics').insert({
         type: 'dashboard_view',
         data: {
@@ -197,7 +188,6 @@ const AdminDashboard: React.FC = () => {
   useEffect(() => {
     fetchDashboardData();
     
-    // Set up realtime subscription for new client signups
     const channel = supabase
       .channel('public:clients')
       .on('postgres_changes', { 
@@ -206,7 +196,7 @@ const AdminDashboard: React.FC = () => {
         table: 'clients' 
       }, payload => {
         toast.info('New client just signed up!');
-        fetchDashboardData(); // Refresh data when new client signs up
+        fetchDashboardData();
       })
       .subscribe();
       
@@ -255,7 +245,6 @@ const AdminDashboard: React.FC = () => {
         </TabsList>
         
         <TabsContent value="overview" className="space-y-6">
-          {/* Stats Cards */}
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -324,7 +313,6 @@ const AdminDashboard: React.FC = () => {
             </Card>
           </div>
           
-          {/* Charts */}
           <div className="grid gap-4 md:grid-cols-2">
             <Card className="col-span-1">
               <CardHeader>
@@ -391,7 +379,6 @@ const AdminDashboard: React.FC = () => {
             </Card>
           </div>
           
-          {/* Revenue Chart */}
           <Card className="col-span-2">
             <CardHeader>
               <CardTitle>Revenue Overview</CardTitle>
@@ -423,47 +410,7 @@ const AdminDashboard: React.FC = () => {
             </CardContent>
           </Card>
           
-          {/* Recent Signups */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Signups</CardTitle>
-              <CardDescription>
-                New clients that registered recently
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="overflow-auto max-h-[400px]">
-                <table className="w-full">
-                  <thead>
-                    <tr className="text-left text-xs text-muted-foreground">
-                      <th className="pb-3 font-medium">Name</th>
-                      <th className="pb-3 font-medium">Email</th>
-                      <th className="pb-3 font-medium">Service</th>
-                      <th className="pb-3 font-medium text-right">Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentSignups.length > 0 ? (
-                      recentSignups.map((user) => (
-                        <tr key={user.id} className="border-t border-border hover:bg-muted/50">
-                          <td className="py-3">{user.name}</td>
-                          <td className="py-3">{user.email}</td>
-                          <td className="py-3">{user.service}</td>
-                          <td className="py-3 text-right text-muted-foreground text-sm">{user.date}</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={4} className="py-4 text-center text-muted-foreground">
-                          No recent signups found
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
+          <RecentSignupsSection />
         </TabsContent>
         
         <TabsContent value="analytics">
