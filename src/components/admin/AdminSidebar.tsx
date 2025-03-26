@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
@@ -183,7 +184,7 @@ const AdminSidebar: React.FC = () => {
       </ScrollArea>
 
       <div className="p-4 mt-auto">
-        <LogoutButton adminLogout={true} />
+        <LogoutButton isAdminLogout={true} />
       </div>
     </aside>
   );
