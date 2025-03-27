@@ -1,342 +1,284 @@
 
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import DashboardHeader from '@/components/dashboard/DashboardHeader';
-import ServiceCard from '@/components/dashboard/ServiceCard';
-import ServiceSelectionCard from '@/components/dashboard/ServiceSelectionCard';
+import React, { useEffect, useState } from 'react';
+import { Check, Loader2, Package, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
-import { Loader2, AlertCircle, FilterX } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
+import ServiceCard from '@/components/dashboard/ServiceCard';
+import ServiceSelectionCard from '@/components/dashboard/ServiceSelectionCard';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 
-interface Service {
+interface ServiceOption {
   id: string;
-  title: string;
+  name: string;
   description: string;
   price: number;
   priceUnit: string;
   features: string[];
-  category: string;
+  category?: string;
 }
 
 const Services: React.FC = () => {
-  const { currentUser, updateUser } = useAuth();
-  const navigate = useNavigate();
-  const [availableServices, setAvailableServices] = useState<Service[]>([]);
-  const [activeServices, setActiveServices] = useState<Service[]>([]);
+  const [activeTab, setActiveTab] = useState('my-services');
+  const [myServices, setMyServices] = useState<ServiceOption[]>([]);
+  const [availableServices, setAvailableServices] = useState<ServiceOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [categories, setCategories] = useState<string[]>([]);
-  const [isActivating, setIsActivating] = useState(false);
-  
-  useEffect(() => {
-    if (currentUser) {
-      fetchServices();
-    }
-  }, [currentUser]);
+  const [isActivating, setIsActivating] = useState<string | null>(null);
+  const { user } = useAuth();
   
   const fetchServices = async () => {
     setIsLoading(true);
-    setError(null);
-    
     try {
-      // Fetch all services from database
+      if (!user?.id) return;
+      
+      // Fetch all services from the database
       const { data: servicesData, error: servicesError } = await supabase
         .from('services')
         .select('*')
-        .order('price', { ascending: true });
+        .eq('active', true);
       
       if (servicesError) throw servicesError;
       
-      // If no data in services table, fallback to local data
-      let formattedServices: Service[] = [];
+      // Fetch client's selected services
+      const { data: clientData, error: clientError } = await supabase
+        .from('clients')
+        .select('selected_services')
+        .eq('id', user.id)
+        .single();
       
-      if (servicesData && servicesData.length > 0) {
-        // Format services with the expected structure
-        formattedServices = servicesData.map(service => ({
-          id: service.id,
-          title: service.name,
-          description: service.description || '',
-          price: service.price,
-          priceUnit: service.price_unit || 'month',
-          features: service.features || [],
-          category: service.category || 'Other'
-        }));
-        
-        // Extract unique categories
-        const uniqueCategories = [...new Set(formattedServices.map(service => service.category))].filter(Boolean);
-        setCategories(uniqueCategories);
-      } else {
-        // Fallback to local data from services-data.ts
-        const { serviceOptions } = await import('@/lib/services-data');
-        formattedServices = serviceOptions.map(service => ({
-          id: service.id,
-          title: service.title,
-          description: service.description,
-          price: service.price,
-          priceUnit: service.priceUnit,
-          features: service.features,
-          category: service.category || 'Other'
-        }));
-        
-        // Extract unique categories
-        const uniqueCategories = [...new Set(formattedServices.map(service => service.category))].filter(Boolean);
-        setCategories(uniqueCategories);
+      if (clientError && clientError.code !== 'PGRST116') {
+        throw clientError;
       }
       
-      if (currentUser) {
-        // Split into active and available services
-        const active = formattedServices.filter(service => 
-          currentUser.selectedServices.includes(service.title)
-        );
-        
-        const available = formattedServices.filter(service => 
-          !currentUser.selectedServices.includes(service.title)
-        );
-        
-        setActiveServices(active);
-        setAvailableServices(available);
-      }
+      const selectedServiceIds = clientData?.selected_services || [];
+      
+      // Transform services data to match our interface
+      const transformedServices = servicesData?.map(service => ({
+        id: service.id,
+        name: service.name,
+        description: service.description || '',
+        price: Number(service.price),
+        priceUnit: 'month',
+        features: service.features || [],
+        category: service.category
+      })) || [];
+      
+      // Separate services into "my" and "available"
+      const myServicesList = transformedServices.filter(service => 
+        selectedServiceIds.includes(service.id)
+      );
+      
+      const availableServicesList = transformedServices.filter(service => 
+        !selectedServiceIds.includes(service.id)
+      );
+      
+      setMyServices(myServicesList);
+      setAvailableServices(availableServicesList);
     } catch (error: any) {
       console.error('Error fetching services:', error);
-      setError(error.message || 'Failed to load services');
+      toast.error(error.message || 'Failed to load services');
     } finally {
       setIsLoading(false);
     }
   };
   
-  const handleServiceActivation = async (service: Service) => {
-    if (!currentUser) return;
-    
-    setIsActivating(true);
+  useEffect(() => {
+    fetchServices();
+  }, [user?.id]);
+  
+  const handleActivateService = async (serviceId: string) => {
     try {
-      // Add service to user's selected services
-      const updatedServices = [...currentUser.selectedServices, service.title];
-      
-      // Update user in database
-      const { error } = await supabase
-        .from('clients')
-        .update({
-          selected_services: updatedServices
-        })
-        .eq('id', currentUser.id);
-      
-      if (error) throw error;
-      
-      // Update local state
-      if (updateUser) {
-        updateUser({
-          ...currentUser,
-          selectedServices: updatedServices
-        });
+      if (!user?.id) {
+        toast.error('You must be logged in to activate a service');
+        return;
       }
       
-      // Move service from available to active
-      setActiveServices([...activeServices, service]);
-      setAvailableServices(availableServices.filter(s => s.id !== service.id));
+      setIsActivating(serviceId);
       
-      toast.success(`Service "${service.title}" activated successfully!`);
+      // Get current selected services
+      const { data: clientData, error: clientError } = await supabase
+        .from('clients')
+        .select('selected_services')
+        .eq('id', user.id)
+        .single();
       
-      // Navigate to billing to complete payment
-      navigate('/dashboard/billing', { 
-        state: { 
-          selectedService: service,
-          isNewService: true
-        }
-      });
+      if (clientError) throw clientError;
       
+      const currentServices = clientData?.selected_services || [];
+      const updatedServices = [...currentServices, serviceId];
+      
+      // Update the client's selected services
+      const { error: updateError } = await supabase
+        .from('clients')
+        .update({ selected_services: updatedServices })
+        .eq('id', user.id);
+      
+      if (updateError) throw updateError;
+      
+      // Create a transaction record
+      const serviceToActivate = availableServices.find(s => s.id === serviceId);
+      
+      if (serviceToActivate) {
+        const { error: transactionError } = await supabase
+          .from('transactions')
+          .insert({
+            client_id: user.id,
+            amount: serviceToActivate.price,
+            status: 'pending',
+            type: 'subscription',
+            description: `Subscription for ${serviceToActivate.name}`,
+            date: new Date().toISOString()
+          });
+        
+        if (transactionError) throw transactionError;
+      }
+      
+      toast.success('Service activated successfully!');
+      fetchServices();
+      
+      // Switch to "my services" tab
+      setActiveTab('my-services');
     } catch (error: any) {
       console.error('Error activating service:', error);
-      toast.error('Failed to activate service: ' + (error.message || 'Unknown error'));
+      toast.error(error.message || 'Failed to activate service');
     } finally {
-      setIsActivating(false);
+      setIsActivating(null);
     }
   };
   
-  const handleServiceDeactivation = async (service: Service) => {
-    if (!currentUser) return;
-    
+  const handleDeactivateService = async (serviceId: string) => {
     try {
-      // Remove service from user's selected services
-      const updatedServices = currentUser.selectedServices.filter(s => s !== service.title);
-      
-      // Update user in database
-      const { error } = await supabase
-        .from('clients')
-        .update({
-          selected_services: updatedServices
-        })
-        .eq('id', currentUser.id);
-      
-      if (error) throw error;
-      
-      // Update local state
-      if (updateUser) {
-        updateUser({
-          ...currentUser,
-          selectedServices: updatedServices
-        });
+      if (!user?.id) {
+        toast.error('You must be logged in to deactivate a service');
+        return;
       }
       
-      // Move service from active to available
-      setAvailableServices([...availableServices, service]);
-      setActiveServices(activeServices.filter(s => s.id !== service.id));
+      // Get current selected services
+      const { data: clientData, error: clientError } = await supabase
+        .from('clients')
+        .select('selected_services')
+        .eq('id', user.id)
+        .single();
       
-      toast.success(`Service "${service.title}" deactivated successfully!`);
+      if (clientError) throw clientError;
       
+      const currentServices = clientData?.selected_services || [];
+      const updatedServices = currentServices.filter(id => id !== serviceId);
+      
+      // Update the client's selected services
+      const { error: updateError } = await supabase
+        .from('clients')
+        .update({ selected_services: updatedServices })
+        .eq('id', user.id);
+      
+      if (updateError) throw updateError;
+      
+      toast.success('Service deactivated successfully');
+      fetchServices();
     } catch (error: any) {
       console.error('Error deactivating service:', error);
-      toast.error('Failed to deactivate service: ' + (error.message || 'Unknown error'));
+      toast.error(error.message || 'Failed to deactivate service');
     }
   };
   
-  const filteredAvailableServices = selectedCategory === 'all'
-    ? availableServices
-    : availableServices.filter(service => service.category === selectedCategory);
-  
-  if (!currentUser) return null;
-  
-  return (
-    <div className="animate-fade-in">
-      <DashboardHeader pageTitle="My Services" />
-      
-      <div className="p-6">
-        {error && (
-          <Alert variant="destructive" className="mb-6">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
+  const renderContent = () => {
+    if (isLoading) {
+      return (
+        <div className="flex flex-col items-center justify-center py-12">
+          <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+          <p className="text-lg">Loading services...</p>
+        </div>
+      );
+    }
+    
+    return (
+      <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="my-services">My Services</TabsTrigger>
+          <TabsTrigger value="available-services">Available Services</TabsTrigger>
+        </TabsList>
         
-        <Tabs defaultValue="active" className="w-full">
-          <TabsList className="mb-6">
-            <TabsTrigger value="active">
-              Active Services
-              <Badge className="ml-2 bg-green-500 text-white">{activeServices.length}</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="available">
-              Available Services
-              <Badge className="ml-2">{availableServices.length}</Badge>
-            </TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="active">
-            {isLoading ? (
-              <div className="flex justify-center py-10">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : activeServices.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {activeServices.map(service => (
-                  <ServiceCard 
+        <TabsContent value="my-services" className="py-6">
+          {myServices.length > 0 ? (
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {myServices.map((service) => (
+                <ServiceCard 
+                  key={service.id} 
+                  service={service}
+                  onDeactivate={() => handleDeactivateService(service.id)}
+                />
+              ))}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <Package className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-xl font-medium mb-2">No Active Services</h3>
+                <p className="text-muted-foreground text-center max-w-md mb-6">
+                  You haven't activated any services yet. Check out our available services to get started.
+                </p>
+                <button 
+                  onClick={() => setActiveTab('available-services')}
+                  className="flex items-center justify-center text-primary"
+                >
+                  Browse Available Services
+                </button>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+        
+        <TabsContent value="available-services" className="py-6">
+          {availableServices.length > 0 ? (
+            <>
+              <Alert className="mb-6">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>Payment Required</AlertTitle>
+                <AlertDescription>
+                  Activating a service will require payment. You will be charged according to the pricing shown.
+                </AlertDescription>
+              </Alert>
+              
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {availableServices.map((service) => (
+                  <ServiceSelectionCard 
                     key={service.id} 
                     service={service} 
-                    onDeactivate={() => handleServiceDeactivation(service)}
+                    isActive={false}
+                    onActivate={() => handleActivateService(service.id)}
+                    isLoading={isActivating === service.id}
                   />
                 ))}
               </div>
-            ) : (
-              <Card>
-                <CardContent className="pt-6 text-center">
-                  <p className="text-muted-foreground">
-                    You don't have any active services yet. Browse available services to get started.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-          
-          <TabsContent value="available">
-            {isLoading ? (
-              <div className="flex justify-center py-10">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : availableServices.length > 0 ? (
-              <>
-                {categories.length > 0 && (
-                  <div className="mb-6">
-                    <div className="flex flex-wrap gap-2 items-center">
-                      <span className="text-sm font-medium">Filter by category:</span>
-                      <Button 
-                        variant={selectedCategory === 'all' ? 'default' : 'outline'} 
-                        size="sm"
-                        onClick={() => setSelectedCategory('all')}
-                      >
-                        All
-                      </Button>
-                      {categories.map(category => (
-                        <Button 
-                          key={category} 
-                          variant={selectedCategory === category ? 'default' : 'outline'} 
-                          size="sm"
-                          onClick={() => setSelectedCategory(category)}
-                        >
-                          {category}
-                        </Button>
-                      ))}
-                      {selectedCategory !== 'all' && (
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          className="text-muted-foreground"
-                          onClick={() => setSelectedCategory('all')}
-                        >
-                          <FilterX className="h-4 w-4 mr-1" />
-                          Clear filter
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                )}
-                
-                {filteredAvailableServices.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredAvailableServices.map(service => (
-                      <ServiceSelectionCard 
-                        key={service.id} 
-                        service={service} 
-                        isActive={false}
-                        onActivate={() => handleServiceActivation(service)}
-                        isLoading={isActivating}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <Card>
-                    <CardContent className="pt-6 text-center">
-                      <p className="text-muted-foreground">
-                        No services found in the "{selectedCategory}" category.
-                      </p>
-                      <Button 
-                        variant="outline" 
-                        className="mt-4"
-                        onClick={() => setSelectedCategory('all')}
-                      >
-                        View all services
-                      </Button>
-                    </CardContent>
-                  </Card>
-                )}
-              </>
-            ) : (
-              <Card>
-                <CardContent className="pt-6 text-center">
-                  <p className="text-muted-foreground">
-                    No additional services are available at this time.
-                  </p>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-        </Tabs>
+            </>
+          ) : (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <Check className="h-12 w-12 text-green-500 mb-4" />
+                <h3 className="text-xl font-medium mb-2">All Services Activated</h3>
+                <p className="text-muted-foreground text-center max-w-md">
+                  You've activated all available services. Check back later for new offerings.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
+    );
+  };
+  
+  return (
+    <div className="container py-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold tracking-tight">Services</h1>
+        <p className="text-muted-foreground">
+          Manage your active services and explore new offerings
+        </p>
       </div>
+      
+      {renderContent()}
     </div>
   );
 };

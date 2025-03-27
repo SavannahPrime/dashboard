@@ -1,227 +1,244 @@
 
-import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { AlertTriangle, Loader2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, RefreshCcw } from 'lucide-react';
 
 interface RefundRequestFormProps {
   onSuccess?: () => void;
 }
 
 const RefundRequestForm: React.FC<RefundRequestFormProps> = ({ onSuccess }) => {
-  const { currentUser } = useAuth();
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [refundRequest, setRefundRequest] = useState({
-    service: '',
+  const [userServices, setUserServices] = useState<any[]>([]);
+  const [formData, setFormData] = useState({
+    serviceId: '',
     amount: '',
-    reason: 'service-issue',
-    description: '',
+    reason: '',
   });
-  
-  const [transactions, setTransactions] = useState<any[]>([]);
-  const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
-  
-  const fetchTransactions = async () => {
-    if (!currentUser) return;
-    
-    setIsLoadingTransactions(true);
-    try {
-      const { data, error } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('client_id', currentUser.id)
-        .eq('status', 'completed')
-        .order('date', { ascending: false })
-        .limit(10);
-      
-      if (error) throw error;
-      
-      setTransactions(data || []);
-    } catch (error) {
-      console.error('Error fetching transactions:', error);
-      toast.error('Failed to load transactions');
-    } finally {
-      setIsLoadingTransactions(false);
+
+  // Fetch the user's services
+  useEffect(() => {
+    const fetchUserServices = async () => {
+      try {
+        if (!user?.id) return;
+
+        // First get the user's selected services
+        const { data: clientData, error: clientError } = await supabase
+          .from('clients')
+          .select('selected_services')
+          .eq('id', user.id)
+          .single();
+
+        if (clientError) throw clientError;
+
+        const selectedServiceIds = clientData?.selected_services || [];
+
+        if (selectedServiceIds.length === 0) return;
+
+        // Then fetch the actual service details
+        const { data: servicesData, error: servicesError } = await supabase
+          .from('services')
+          .select('id, name, price')
+          .in('id', selectedServiceIds);
+
+        if (servicesError) throw servicesError;
+
+        setUserServices(servicesData || []);
+        
+        // If there are services, set the first one as default
+        if (servicesData && servicesData.length > 0) {
+          setFormData(prev => ({
+            ...prev,
+            serviceId: servicesData[0].id,
+            amount: servicesData[0].price.toString()
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching user services:', error);
+        toast.error('Failed to load your services');
+      }
+    };
+
+    fetchUserServices();
+  }, [user?.id]);
+
+  const handleServiceChange = (serviceId: string) => {
+    const selectedService = userServices.find(s => s.id === serviceId);
+    if (selectedService) {
+      setFormData({
+        ...formData,
+        serviceId,
+        amount: selectedService.price.toString()
+      });
     }
   };
-  
-  React.useEffect(() => {
-    if (currentUser) {
-      fetchTransactions();
-    }
-  }, [currentUser]);
-  
+
   const handleSubmit = async () => {
-    if (!currentUser) return;
-    
-    if (!refundRequest.service || !refundRequest.amount || !refundRequest.description) {
-      toast.error('Please fill in all required fields');
+    // Validate form
+    if (!formData.serviceId || !formData.amount || !formData.reason) {
+      toast.error('Please fill in all fields');
       return;
     }
-    
+
+    if (!user?.id) {
+      toast.error('You must be logged in to submit a refund request');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      // Create a refund request (using tickets system with refund category)
+      // Create a new support ticket with refund information
+      const selectedService = userServices.find(s => s.id === formData.serviceId);
+      
       const { data, error } = await supabase
         .from('tickets')
         .insert({
-          subject: `Refund Request - ${refundRequest.service}`,
-          category: 'refund',
-          priority: 'high',
-          client_id: currentUser.id,
+          subject: `Refund Request for ${selectedService?.name || 'Service'}`,
           status: 'open',
-          refund_amount: parseFloat(refundRequest.amount),
-          refund_service: refundRequest.service
+          priority: 'high',
+          client_id: user.id,
+          category: 'refund',
+          refund_service: formData.serviceId,
+          refund_amount: parseFloat(formData.amount)
         })
         .select()
         .single();
-      
+
       if (error) throw error;
-      
-      // Add the initial message explaining the refund
+
+      // Add the first message
       const { error: messageError } = await supabase
         .from('ticket_messages')
         .insert({
           ticket_id: data.id,
-          content: `Refund request reason: ${refundRequest.reason}\n\n${refundRequest.description}`,
+          content: formData.reason,
           sender: 'client'
         });
-      
+
       if (messageError) throw messageError;
-      
+
       toast.success('Refund request submitted successfully');
       
       // Reset form
-      setRefundRequest({
-        service: '',
+      setFormData({
+        serviceId: '',
         amount: '',
-        reason: 'service-issue',
-        description: '',
+        reason: ''
       });
       
-      // Call the success callback if provided
-      if (onSuccess) onSuccess();
-      
-    } catch (error) {
+      // Navigate to support page or call onSuccess
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        navigate('/dashboard/support', { 
+          state: { activeTab: 'tickets' } 
+        });
+      }
+    } catch (error: any) {
       console.error('Error submitting refund request:', error);
-      toast.error('Failed to submit refund request');
+      toast.error(error.message || 'Failed to submit refund request');
     } finally {
       setIsSubmitting(false);
     }
   };
-  
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
-  };
-  
+
+  if (userServices.length === 0) {
+    return (
+      <Card>
+        <CardContent className="flex flex-col items-center justify-center py-12">
+          <AlertTriangle className="h-12 w-12 text-muted-foreground mb-4" />
+          <h3 className="text-xl font-medium mb-2">No Active Services</h3>
+          <p className="text-muted-foreground text-center max-w-md mb-6">
+            You don't have any active services to request a refund for.
+          </p>
+          <Button onClick={() => navigate('/dashboard/services')}>
+            View Available Services
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <span>Request a Refund</span>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={fetchTransactions}
-            disabled={isLoadingTransactions}
-          >
-            <RefreshCcw className={`h-4 w-4 ${isLoadingTransactions ? 'animate-spin' : ''}`} />
-          </Button>
-        </CardTitle>
+        <CardTitle>Request a Refund</CardTitle>
         <CardDescription>
-          If you're not satisfied with a service, you can request a refund.
-          Refund requests are reviewed by our team within 48 hours.
+          Submit a refund request for one of your active services
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="service">Service</Label>
-          <Select 
-            value={refundRequest.service}
-            onValueChange={(value) => setRefundRequest({ ...refundRequest, service: value })}
-          >
-            <SelectTrigger id="service">
-              <SelectValue placeholder="Select service" />
-            </SelectTrigger>
-            <SelectContent>
-              {currentUser?.selectedServices.map((service, index) => (
-                <SelectItem key={index} value={service}>{service}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="amount">
-            Refund Amount
-            {transactions.length > 0 && (
-              <span className="text-xs text-muted-foreground ml-2">
-                (Recent payments: {transactions.slice(0, 3).map(t => formatCurrency(t.amount)).join(', ')})
-              </span>
-            )}
-          </Label>
-          <Input
-            id="amount"
-            type="number"
-            step="0.01"
-            min="0"
-            placeholder="Enter amount"
-            value={refundRequest.amount}
-            onChange={(e) => setRefundRequest({ ...refundRequest, amount: e.target.value })}
-          />
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="reason">Reason</Label>
-          <Select 
-            value={refundRequest.reason}
-            onValueChange={(value) => setRefundRequest({ ...refundRequest, reason: value })}
-          >
-            <SelectTrigger id="reason">
-              <SelectValue placeholder="Select reason" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="service-issue">Service Issue</SelectItem>
-              <SelectItem value="not-as-described">Not As Described</SelectItem>
-              <SelectItem value="double-charged">Double Charged</SelectItem>
-              <SelectItem value="cancellation">Subscription Cancellation</SelectItem>
-              <SelectItem value="other">Other</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="description">Description</Label>
-          <Textarea
-            id="description"
-            placeholder="Please explain why you're requesting a refund..."
-            rows={4}
-            value={refundRequest.description}
-            onChange={(e) => setRefundRequest({ ...refundRequest, description: e.target.value })}
-          />
+        <Alert variant="warning">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Important Information</AlertTitle>
+          <AlertDescription>
+            Refund requests are subject to review. Please provide detailed information about why you're requesting a refund.
+          </AlertDescription>
+        </Alert>
+
+        <div className="space-y-4">
+          <div className="grid gap-2">
+            <Label htmlFor="service">Service</Label>
+            <Select 
+              value={formData.serviceId} 
+              onValueChange={handleServiceChange}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select a service" />
+              </SelectTrigger>
+              <SelectContent>
+                {userServices.map(service => (
+                  <SelectItem key={service.id} value={service.id}>
+                    {service.name} (${service.price})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="amount">Refund Amount ($)</Label>
+            <Input 
+              id="amount"
+              type="number"
+              value={formData.amount}
+              onChange={(e) => setFormData({...formData, amount: e.target.value})}
+              placeholder="0.00"
+            />
+            <p className="text-xs text-muted-foreground">
+              The maximum refund amount is the amount you paid for the service.
+            </p>
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="reason">Reason for Refund</Label>
+            <Textarea 
+              id="reason"
+              value={formData.reason}
+              onChange={(e) => setFormData({...formData, reason: e.target.value})}
+              placeholder="Please explain why you're requesting a refund..."
+              className="min-h-[120px]"
+            />
+          </div>
         </div>
       </CardContent>
-      <CardFooter>
-        <Button 
-          onClick={handleSubmit}
-          disabled={isSubmitting || !refundRequest.service || !refundRequest.amount || !refundRequest.description}
-        >
+      <CardFooter className="flex justify-between">
+        <Button variant="outline" onClick={() => navigate(-1)}>
+          Cancel
+        </Button>
+        <Button onClick={handleSubmit} disabled={isSubmitting}>
           {isSubmitting ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
