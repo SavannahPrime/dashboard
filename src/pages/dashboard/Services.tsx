@@ -18,6 +18,7 @@ interface ServiceOption {
   priceUnit: string;
   features: string[];
   category?: string;
+  title?: string; // Added to match the required type
 }
 
 const Services: React.FC = () => {
@@ -26,12 +27,12 @@ const Services: React.FC = () => {
   const [availableServices, setAvailableServices] = useState<ServiceOption[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isActivating, setIsActivating] = useState<string | null>(null);
-  const { user } = useAuth();
+  const { currentUser } = useAuth();
   
   const fetchServices = async () => {
     setIsLoading(true);
     try {
-      if (!user?.id) return;
+      if (!currentUser?.id) return;
       
       // Fetch all services from the database
       const { data: servicesData, error: servicesError } = await supabase
@@ -45,7 +46,7 @@ const Services: React.FC = () => {
       const { data: clientData, error: clientError } = await supabase
         .from('clients')
         .select('selected_services')
-        .eq('id', user.id)
+        .eq('id', currentUser.id)
         .single();
       
       if (clientError && clientError.code !== 'PGRST116') {
@@ -58,6 +59,7 @@ const Services: React.FC = () => {
       const transformedServices = servicesData?.map(service => ({
         id: service.id,
         name: service.name,
+        title: service.name, // Map name to title for compatibility
         description: service.description || '',
         price: Number(service.price),
         priceUnit: 'month',
@@ -86,11 +88,11 @@ const Services: React.FC = () => {
   
   useEffect(() => {
     fetchServices();
-  }, [user?.id]);
+  }, [currentUser?.id]);
   
   const handleActivateService = async (serviceId: string) => {
     try {
-      if (!user?.id) {
+      if (!currentUser?.id) {
         toast.error('You must be logged in to activate a service');
         return;
       }
@@ -101,7 +103,7 @@ const Services: React.FC = () => {
       const { data: clientData, error: clientError } = await supabase
         .from('clients')
         .select('selected_services')
-        .eq('id', user.id)
+        .eq('id', currentUser.id)
         .single();
       
       if (clientError) throw clientError;
@@ -113,7 +115,7 @@ const Services: React.FC = () => {
       const { error: updateError } = await supabase
         .from('clients')
         .update({ selected_services: updatedServices })
-        .eq('id', user.id);
+        .eq('id', currentUser.id);
       
       if (updateError) throw updateError;
       
@@ -124,7 +126,7 @@ const Services: React.FC = () => {
         const { error: transactionError } = await supabase
           .from('transactions')
           .insert({
-            client_id: user.id,
+            client_id: currentUser.id,
             amount: serviceToActivate.price,
             status: 'pending',
             type: 'subscription',
@@ -150,7 +152,7 @@ const Services: React.FC = () => {
   
   const handleDeactivateService = async (serviceId: string) => {
     try {
-      if (!user?.id) {
+      if (!currentUser?.id) {
         toast.error('You must be logged in to deactivate a service');
         return;
       }
@@ -159,7 +161,7 @@ const Services: React.FC = () => {
       const { data: clientData, error: clientError } = await supabase
         .from('clients')
         .select('selected_services')
-        .eq('id', user.id)
+        .eq('id', currentUser.id)
         .single();
       
       if (clientError) throw clientError;
@@ -171,7 +173,7 @@ const Services: React.FC = () => {
       const { error: updateError } = await supabase
         .from('clients')
         .update({ selected_services: updatedServices })
-        .eq('id', user.id);
+        .eq('id', currentUser.id);
       
       if (updateError) throw updateError;
       

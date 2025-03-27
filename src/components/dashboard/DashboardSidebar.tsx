@@ -24,7 +24,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   onNavClick 
 }) => {
   const location = useLocation();
-  const { user } = useAuth();
+  const { currentUser } = useAuth();
   
   const handleNavClick = () => {
     if (onNavClick) {
@@ -73,9 +73,9 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
       <div className="p-4 border-b">
         <div className="flex items-center space-x-3">
           <div className="flex-shrink-0 h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-            {user?.email ? (
+            {currentUser?.email ? (
               <span className="text-sm font-medium text-primary">
-                {user.email.charAt(0).toUpperCase()}
+                {currentUser.email.charAt(0).toUpperCase()}
               </span>
             ) : (
               <User className="h-5 w-5 text-primary" />
@@ -83,7 +83,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate">
-              {user?.email || 'User'}
+              {currentUser?.email || 'User'}
             </p>
             <p className="text-xs text-muted-foreground truncate">
               Client
@@ -123,7 +123,7 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
       <div className="p-4 border-t">
         <LogoutButton className="w-full justify-start" variant="ghost">
           <LogOut className="h-5 w-5 mr-3" />
-          Logout
+          <span>Logout</span>
         </LogoutButton>
       </div>
     </div>

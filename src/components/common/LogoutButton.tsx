@@ -12,13 +12,15 @@ interface LogoutButtonProps {
   variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
   size?: 'default' | 'sm' | 'lg' | 'icon';
   className?: string;
+  children?: React.ReactNode;
 }
 
 const LogoutButton: React.FC<LogoutButtonProps> = ({ 
   isAdminLogout = false, 
   variant = 'ghost',
   size = 'default',
-  className = ''
+  className = '',
+  children
 }) => {
   const navigate = useNavigate();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -67,9 +69,13 @@ const LogoutButton: React.FC<LogoutButtonProps> = ({
       {isLoggingOut ? (
         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
       ) : (
-        <LogOut className="h-4 w-4 mr-2" />
+        children || (
+          <>
+            <LogOut className="h-4 w-4 mr-2" />
+            Log Out
+          </>
+        )
       )}
-      Log Out
     </Button>
   );
 };

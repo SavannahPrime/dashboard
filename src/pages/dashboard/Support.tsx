@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Loader2, PaperPlaneIcon, HelpCircle, MessageSquare, AlertTriangle } from 'lucide-react';
+import { Loader2, Send, HelpCircle, MessageSquare, AlertTriangle } from 'lucide-react';
 import { SupportTicket } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -19,7 +19,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 const Support: React.FC = () => {
-  const { user } = useAuth();
+  const { currentUser } = useAuth();
   const location = useLocation();
   const [activeTab, setActiveTab] = useState('tickets');
   const [tickets, setTickets] = useState<SupportTicket[]>([]);
@@ -46,12 +46,12 @@ const Support: React.FC = () => {
   const fetchTickets = async () => {
     setIsLoading(true);
     try {
-      if (!user?.id) return;
+      if (!currentUser?.id) return;
 
       const { data, error } = await supabase
         .from('tickets')
         .select('*')
-        .eq('client_id', user.id)
+        .eq('client_id', currentUser.id)
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
@@ -101,13 +101,13 @@ const Support: React.FC = () => {
   // Fetch user's services for refund requests
   const fetchUserServices = async () => {
     try {
-      if (!user?.id) return;
+      if (!currentUser?.id) return;
 
       // First get the user's selected services
       const { data: clientData, error: clientError } = await supabase
         .from('clients')
         .select('selected_services')
-        .eq('id', user.id)
+        .eq('id', currentUser.id)
         .single();
 
       if (clientError) throw clientError;
@@ -133,7 +133,7 @@ const Support: React.FC = () => {
   useEffect(() => {
     fetchTickets();
     fetchUserServices();
-  }, [user?.id]);
+  }, [currentUser?.id]);
 
   // Scroll to bottom of messages when they change
   useEffect(() => {
@@ -144,7 +144,7 @@ const Support: React.FC = () => {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return new Intl.DateFormat('en-US', {
+    return new Intl.DateTimeFormat('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -160,7 +160,7 @@ const Support: React.FC = () => {
       case 'in-progress':
         return 'default';
       case 'resolved':
-        return 'success';
+        return 'secondary';
       case 'closed':
         return 'outline';
       default:
@@ -173,7 +173,7 @@ const Support: React.FC = () => {
       case 'high':
         return 'destructive';
       case 'medium':
-        return 'warning';
+        return 'secondary';
       case 'low':
         return 'outline';
       default:
@@ -261,7 +261,7 @@ const Support: React.FC = () => {
       return;
     }
 
-    if (!user?.id) {
+    if (!currentUser?.id) {
       toast.error('You must be logged in to submit a ticket');
       return;
     }
@@ -273,7 +273,7 @@ const Support: React.FC = () => {
         subject: newTicket.subject,
         status: 'open',
         priority: newTicket.priority,
-        client_id: user.id,
+        client_id: currentUser.id,
         category: newTicket.category
       };
 
@@ -283,7 +283,7 @@ const Support: React.FC = () => {
         ticketData.refund_amount = parseFloat(newTicket.refundAmount);
       }
 
-      const { data: ticketData, error: ticketError } = await supabase
+      const { data: newTicketData, error: ticketError } = await supabase
         .from('tickets')
         .insert(ticketData)
         .select()
@@ -295,7 +295,7 @@ const Support: React.FC = () => {
       const { error: messageError } = await supabase
         .from('ticket_messages')
         .insert({
-          ticket_id: ticketData.id,
+          ticket_id: newTicketData.id,
           content: newTicket.message,
           sender: 'client'
         });
@@ -609,7 +609,7 @@ const Support: React.FC = () => {
                   {isSubmitting ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <PaperPlaneIcon className="h-4 w-4 mr-2" />
+                    <Send className="h-4 w-4 mr-2" />
                   )}
                   Send
                 </Button>
@@ -659,7 +659,7 @@ const Support: React.FC = () => {
           </div>
           
           {isRefundRequest && (
-            <Alert variant="warning" className="mb-4">
+            <Alert variant="destructive">
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>Refund Request</AlertTitle>
               <AlertDescription>
@@ -755,7 +755,7 @@ const Support: React.FC = () => {
                 id="message" 
                 placeholder="Please describe your issue in detail..."
                 value={newTicket.message}
-                onChange={(e) => setNewTicket({...newTicket, message: e.target.message})}
+                onChange={(e) => setNewTicket({...newTicket, message: e.target.value})}
                 className="min-h-[150px]"
               />
             </div>

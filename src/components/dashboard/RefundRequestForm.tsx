@@ -18,7 +18,7 @@ interface RefundRequestFormProps {
 }
 
 const RefundRequestForm: React.FC<RefundRequestFormProps> = ({ onSuccess }) => {
-  const { user } = useAuth();
+  const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userServices, setUserServices] = useState<any[]>([]);
@@ -32,13 +32,13 @@ const RefundRequestForm: React.FC<RefundRequestFormProps> = ({ onSuccess }) => {
   useEffect(() => {
     const fetchUserServices = async () => {
       try {
-        if (!user?.id) return;
+        if (!currentUser?.id) return;
 
         // First get the user's selected services
         const { data: clientData, error: clientError } = await supabase
           .from('clients')
           .select('selected_services')
-          .eq('id', user.id)
+          .eq('id', currentUser.id)
           .single();
 
         if (clientError) throw clientError;
@@ -72,7 +72,7 @@ const RefundRequestForm: React.FC<RefundRequestFormProps> = ({ onSuccess }) => {
     };
 
     fetchUserServices();
-  }, [user?.id]);
+  }, [currentUser?.id]);
 
   const handleServiceChange = (serviceId: string) => {
     const selectedService = userServices.find(s => s.id === serviceId);
@@ -92,7 +92,7 @@ const RefundRequestForm: React.FC<RefundRequestFormProps> = ({ onSuccess }) => {
       return;
     }
 
-    if (!user?.id) {
+    if (!currentUser?.id) {
       toast.error('You must be logged in to submit a refund request');
       return;
     }
@@ -108,7 +108,7 @@ const RefundRequestForm: React.FC<RefundRequestFormProps> = ({ onSuccess }) => {
           subject: `Refund Request for ${selectedService?.name || 'Service'}`,
           status: 'open',
           priority: 'high',
-          client_id: user.id,
+          client_id: currentUser.id,
           category: 'refund',
           refund_service: formData.serviceId,
           refund_amount: parseFloat(formData.amount)
@@ -180,7 +180,7 @@ const RefundRequestForm: React.FC<RefundRequestFormProps> = ({ onSuccess }) => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Alert variant="warning">
+        <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>Important Information</AlertTitle>
           <AlertDescription>
