@@ -5,6 +5,7 @@ import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import StatCard from '@/components/dashboard/StatCard';
 import ServiceCard from '@/components/dashboard/ServiceCard';
 import SubscriptionStatusCard from '@/components/dashboard/SubscriptionStatusCard';
+import CommunicationCenter from '@/components/dashboard/CommunicationCenter';
 import { getServiceByTitle } from '@/lib/services-data';
 import { Badge } from '@/components/ui/badge';
 import { CreditCard, Calendar, Users, Clock, ArrowRight } from 'lucide-react';
@@ -68,7 +69,7 @@ const Dashboard: React.FC = () => {
           <div className="lg:col-span-2 space-y-6">
             <div className="flex justify-between items-center">
               <h3 className="text-xl font-bold">Your Services</h3>
-              <Button variant="ghost" className="text-sm group">
+              <Button variant="ghost" className="text-sm group" onClick={() => window.location.href = '/dashboard/services'}>
                 View All
                 <ArrowRight className="ml-1 h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Button>
@@ -81,9 +82,10 @@ const Dashboard: React.FC = () => {
             </div>
           </div>
           
-          {/* Right Column: Subscription and Activity */}
+          {/* Right Column: Subscription and Communication */}
           <div className="space-y-6">
             <SubscriptionStatusCard />
+            <CommunicationCenter />
           </div>
         </div>
       </div>

@@ -32,26 +32,21 @@ const LogoutButton: React.FC<LogoutButtonProps> = ({
     
     try {
       setIsLoggingOut(true);
-      toast.loading('Logging out...');
+      // No toast loading message to speed up perceived performance
       
       if (isAdminLogout) {
         await adminLogout();
-        // Short delay to ensure state is updated
-        setTimeout(() => {
-          navigate('/admin/login');
-        }, 100);
+        // Navigate immediately without delay
+        navigate('/admin/login');
       } else {
         await clientLogout();
-        setTimeout(() => {
-          navigate('/login');
-        }, 100);
+        navigate('/login');
       }
       
-      toast.dismiss();
+      // Show success toast after navigation has started
       toast.success('Successfully logged out');
     } catch (error) {
       console.error('Logout error:', error);
-      toast.dismiss();
       toast.error('Failed to log out. Please try again.');
     } finally {
       setIsLoggingOut(false);
