@@ -1,4 +1,4 @@
-
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -45,73 +45,92 @@ const queryClient = new QueryClient({
   },
 });
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <ThemeProvider>
-      <AuthProvider>
-        <AdminAuthProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <Routes>
-                {/* Public Routes */}
-                <Route path="/" element={<Home />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/register" element={<Register />} />
-                <Route path="/reset-password" element={<ResetPassword />} />
-                
-                {/* Dashboard Routes */}
-                <Route path="/dashboard" element={<DashboardLayout />}>
-                  <Route index element={<Dashboard />} />
-                  <Route path="services" element={<Services />} />
-                  <Route path="billing" element={<Billing />} />
-                  <Route path="settings" element={<Settings />} />
-                  <Route path="support" element={<Support />} />
-                </Route>
-                
-                {/* Admin Routes */}
-                <Route path="/admin/login" element={<AdminLogin />} />
-                
-                {/* Main Admin Routes */}
-                <Route path="/admin" element={<AdminLayout />}>
-                  <Route index element={<Navigate to="/admin/dashboard" replace />} />
-                  <Route path="dashboard" element={<AdminDashboard />} />
-                  <Route path="users" element={<UserManagement />} />
-                  <Route path="employees" element={<EmployeeManagement />} />
-                  <Route path="analytics" element={<AdminAnalytics />} />
-                  <Route path="finance" element={<AdminFinance />} />
-                  <Route path="services" element={<AdminServices />} />
-                  <Route path="communications" element={<AdminCommunications />} />
-                  <Route path="settings" element={<AdminSettings />} />
-                </Route>
+const App = () => {
+  // Add Google Analytics script dynamically
+  useEffect(() => {
+    const script1 = document.createElement("script");
+    script1.async = true;
+    script1.src = "https://www.googletagmanager.com/gtag/js?id=G-LSCG6WTP3T";
+    document.head.appendChild(script1);
 
-                {/* Sales Role Admin Dashboard */}
-                <Route path="/admin/sales" element={<AdminLayout />}>
-                  <Route index element={<Navigate to="/admin/sales/dashboard" replace />} />
-                  <Route path="dashboard" element={<SalesDashboard />} />
-                  <Route path="users" element={<UserManagement />} />
-                  <Route path="finance" element={<AdminFinance />} />
-                  <Route path="analytics" element={<AdminAnalytics />} />
-                </Route>
-                
-                {/* Support Role Admin Dashboard */}
-                <Route path="/admin/support" element={<AdminLayout />}>
-                  <Route index element={<Navigate to="/admin/support/dashboard" replace />} />
-                  <Route path="dashboard" element={<SupportDashboard />} />
-                  <Route path="communications" element={<AdminCommunications />} />
-                  <Route path="users" element={<UserManagement />} />
-                </Route>
-                
-                {/* Catch All */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-          </TooltipProvider>
-        </AdminAuthProvider>
-      </AuthProvider>
-    </ThemeProvider>
-  </QueryClientProvider>
-);
+    const script2 = document.createElement("script");
+    script2.innerHTML = `
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-LSCG6WTP3T');
+    `;
+    document.head.appendChild(script2);
+  }, []);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <AuthProvider>
+          <AdminAuthProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <Routes>
+                  {/* Public Routes */}
+                  <Route path="/" element={<Home />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/register" element={<Register />} />
+                  <Route path="/reset-password" element={<ResetPassword />} />
+                  
+                  {/* Dashboard Routes */}
+                  <Route path="/dashboard" element={<DashboardLayout />}>
+                    <Route index element={<Dashboard />} />
+                    <Route path="services" element={<Services />} />
+                    <Route path="billing" element={<Billing />} />
+                    <Route path="settings" element={<Settings />} />
+                    <Route path="support" element={<Support />} />
+                  </Route>
+                  
+                  {/* Admin Routes */}
+                  <Route path="/admin/login" element={<AdminLogin />} />
+                  
+                  {/* Main Admin Routes */}
+                  <Route path="/admin" element={<AdminLayout />}>
+                    <Route index element={<Navigate to="/admin/dashboard" replace />} />
+                    <Route path="dashboard" element={<AdminDashboard />} />
+                    <Route path="users" element={<UserManagement />} />
+                    <Route path="employees" element={<EmployeeManagement />} />
+                    <Route path="analytics" element={<AdminAnalytics />} />
+                    <Route path="finance" element={<AdminFinance />} />
+                    <Route path="services" element={<AdminServices />} />
+                    <Route path="communications" element={<AdminCommunications />} />
+                    <Route path="settings" element={<AdminSettings />} />
+                  </Route>
+
+                  {/* Sales Role Admin Dashboard */}
+                  <Route path="/admin/sales" element={<AdminLayout />}>
+                    <Route index element={<Navigate to="/admin/sales/dashboard" replace />} />
+                    <Route path="dashboard" element={<SalesDashboard />} />
+                    <Route path="users" element={<UserManagement />} />
+                    <Route path="finance" element={<AdminFinance />} />
+                    <Route path="analytics" element={<AdminAnalytics />} />
+                  </Route>
+                  
+                  {/* Support Role Admin Dashboard */}
+                  <Route path="/admin/support" element={<AdminLayout />}>
+                    <Route index element={<Navigate to="/admin/support/dashboard" replace />} />
+                    <Route path="dashboard" element={<SupportDashboard />} />
+                    <Route path="communications" element={<AdminCommunications />} />
+                    <Route path="users" element={<UserManagement />} />
+                  </Route>
+                  
+                  {/* Catch All */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </BrowserRouter>
+            </TooltipProvider>
+          </AdminAuthProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
