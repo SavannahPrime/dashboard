@@ -79,9 +79,10 @@ const Support: React.FC = () => {
       if (error) throw error;
       
       // Transform data to match our SupportTicket type
-      const formattedTickets = data.map(ticket => ({
+      const formattedTickets: SupportTicket[] = data.map(ticket => ({
         id: ticket.id,
         subject: ticket.subject,
+        message: '', // Adding an empty message to match the required type
         status: ticket.status,
         priority: ticket.priority,
         createdAt: ticket.created_at,
@@ -151,6 +152,7 @@ const Support: React.FC = () => {
       const newTicket: SupportTicket = {
         id: data.id,
         subject: data.subject,
+        message: ticketForm.message, // Include the message from the form
         status: data.status,
         priority: data.priority,
         createdAt: data.created_at,

@@ -20,7 +20,7 @@ export interface PaymentType {
 export interface SupportTicket {
   id: string;
   subject: string;
-  message: string;
+  message?: string; // Making message optional to match current implementation
   status: 'open' | 'in-progress' | 'resolved' | 'closed';
   priority: 'low' | 'medium' | 'high';
   createdAt: string;

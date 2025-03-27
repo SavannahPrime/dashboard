@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +12,7 @@ import {
 } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { CreditCard, Phone, DollarSign, Loader2, PaypalLogo } from 'lucide-react';
+import { CreditCard, Phone, DollarSign, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -34,7 +33,6 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
   const [activeTab, setActiveTab] = useState('card');
   const [isProcessing, setIsProcessing] = useState(false);
   
-  // Card payment form state
   const [cardForm, setCardForm] = useState({
     cardNumber: '',
     expiryDate: '',
@@ -42,24 +40,20 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
     name: currentUser?.name || '',
   });
   
-  // Mobile payment form state
   const [mobileForm, setMobileForm] = useState({
     phoneNumber: '',
   });
   
-  // Handle card form changes
   const handleCardChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setCardForm(prev => ({ ...prev, [name]: value }));
   };
   
-  // Handle mobile form changes
   const handleMobileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setMobileForm(prev => ({ ...prev, [name]: value }));
   };
   
-  // Process card payment
   const processCardPayment = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -71,10 +65,8 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
     setIsProcessing(true);
     
     try {
-      // Simulate payment processing
       await new Promise(resolve => setTimeout(resolve, 1500));
       
-      // Record the transaction
       await recordTransaction('card');
       
       toast.success('Payment processed successfully');
@@ -87,15 +79,12 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
     }
   };
   
-  // Process PayPal payment
   const processPayPalPayment = async () => {
     setIsProcessing(true);
     
     try {
-      // Simulate PayPal redirect and processing
       await new Promise(resolve => setTimeout(resolve, 1500));
       
-      // Record the transaction
       await recordTransaction('paypal');
       
       toast.success('PayPal payment processed successfully');
@@ -108,7 +97,6 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
     }
   };
   
-  // Process mobile payment
   const processMobilePayment = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -120,10 +108,8 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
     setIsProcessing(true);
     
     try {
-      // Simulate mobile payment processing
       await new Promise(resolve => setTimeout(resolve, 1500));
       
-      // Record the transaction
       await recordTransaction('mobile');
       
       toast.success('Mobile payment initiated. Check your phone for confirmation.');
@@ -136,7 +122,6 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
     }
   };
   
-  // Record transaction in database
   const recordTransaction = async (paymentMethod: string) => {
     if (!currentUser) return;
     
@@ -156,7 +141,6 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
       throw error;
     }
     
-    // If there's an invoice, update its status
     if (invoiceId) {
       const { error: updateError } = await supabase
         .from('invoices')
