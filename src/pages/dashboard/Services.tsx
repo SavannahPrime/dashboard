@@ -52,9 +52,10 @@ const Services: React.FC = () => {
         title: service.name, // Map name to title for compatibility
         description: service.description || '',
         price: Number(service.price),
-        priceUnit: 'month',
+        priceUnit: 'month' as const,
         features: service.features || [],
-        category: service.category
+        category: service.category,
+        icon: 'globe' // Provide a default icon
       })) || [];
       
       // Separate services into "my" and "available"
