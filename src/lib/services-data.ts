@@ -7,6 +7,8 @@ export interface ServiceOption {
   priceUnit: 'month' | 'year' | 'one-time';
   icon: string;
   features: string[];
+  category?: string;
+  name?: string; // Added for compatibility with Supabase service data
 }
 
 export const serviceOptions: ServiceOption[] = [

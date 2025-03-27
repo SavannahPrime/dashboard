@@ -9,17 +9,7 @@ import ServiceSelectionCard from '@/components/dashboard/ServiceSelectionCard';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
-
-interface ServiceOption {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  priceUnit: string;
-  features: string[];
-  category?: string;
-  title?: string; // Added to match the required type
-}
+import { ServiceOption } from '@/lib/services-data';
 
 const Services: React.FC = () => {
   const [activeTab, setActiveTab] = useState('my-services');
@@ -130,7 +120,7 @@ const Services: React.FC = () => {
             amount: serviceToActivate.price,
             status: 'pending',
             type: 'subscription',
-            description: `Subscription for ${serviceToActivate.name}`,
+            description: `Subscription for ${serviceToActivate.title}`,
             date: new Date().toISOString()
           });
         
