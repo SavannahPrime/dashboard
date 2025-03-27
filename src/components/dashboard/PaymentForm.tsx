@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +16,7 @@ import { toast } from 'sonner';
 import { CreditCard, Phone, DollarSign, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { PaymentType } from '@/lib/types';
 
 interface PaymentFormProps {
   invoiceId?: string;
@@ -122,9 +124,18 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
     }
   };
   
-  const recordTransaction = async (paymentMethod: string) => {
+  const recordTransaction = async (paymentMethod: string): Promise<void> => {
     if (!currentUser) return;
     
+    // Create transaction data
+    const transactionData: Partial<PaymentType> = {
+      amount: amount,
+      status: 'completed',
+      method: paymentMethod,
+      description: invoiceId ? `Payment for invoice ${invoiceId}` : 'Service payment',
+    };
+    
+    // Insert transaction into database
     const { error } = await supabase
       .from('transactions')
       .insert({
@@ -133,7 +144,8 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
         type: 'payment',
         status: 'completed',
         description: invoiceId ? `Payment for invoice ${invoiceId}` : 'Service payment',
-        invoice_number: invoiceId
+        invoice_number: invoiceId,
+        method: paymentMethod
       });
     
     if (error) {
@@ -141,6 +153,7 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
       throw error;
     }
     
+    // If invoice exists, update its status
     if (invoiceId) {
       const { error: updateError } = await supabase
         .from('invoices')

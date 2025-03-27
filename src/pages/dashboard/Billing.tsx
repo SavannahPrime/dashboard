@@ -7,8 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { getServiceByTitle } from '@/lib/services-data';
-import { Download, CreditCard, Clock, Calendar, Check, Loader2 } from 'lucide-react';
+import { Download, CreditCard, Clock, Calendar, Check, Loader2, AlertCircle, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import {
   Dialog,
@@ -17,17 +16,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import PaymentForm from '@/components/dashboard/PaymentForm';
+import { PaymentType } from '@/lib/types';
 
 const Billing: React.FC = () => {
   const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState('subscription');
   const [isLoading, setIsLoading] = useState(true);
-  const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
+  const [paymentHistory, setPaymentHistory] = useState<PaymentType[]>([]);
+  const [savedPaymentMethods, setSavedPaymentMethods] = useState<any[]>([]);
   const [invoices, setInvoices] = useState<any[]>([]);
   const [activeServices, setActiveServices] = useState<any[]>([]);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [showAddPaymentMethodDialog, setShowAddPaymentMethodDialog] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
     if (currentUser) {
@@ -37,11 +41,15 @@ const Billing: React.FC = () => {
   
   const fetchData = async () => {
     setIsLoading(true);
+    setError(null);
+    
     try {
       // Fetch services
-      const { data: servicesData } = await supabase
+      const { data: servicesData, error: servicesError } = await supabase
         .from('services')
         .select('*');
+      
+      if (servicesError) throw servicesError;
       
       if (servicesData && currentUser) {
         // Format services
@@ -51,7 +59,7 @@ const Billing: React.FC = () => {
           id: service.id,
           title: service.name,
           price: service.price,
-          priceUnit: 'month',
+          priceUnit: service.price_unit || 'month',
           description: service.description,
         }));
         
@@ -59,28 +67,45 @@ const Billing: React.FC = () => {
       }
       
       // Fetch payment history
-      const { data: transactionsData } = await supabase
+      const { data: transactionsData, error: transactionsError } = await supabase
         .from('transactions')
         .select('*')
         .eq('client_id', currentUser?.id)
         .order('date', { ascending: false });
       
+      if (transactionsError) throw transactionsError;
+      
       if (transactionsData) {
         setPaymentHistory(transactionsData);
       }
       
+      // Fetch saved payment methods
+      const { data: paymentMethodsData, error: paymentMethodsError } = await supabase
+        .from('payment_methods')
+        .select('*')
+        .eq('client_id', currentUser?.id);
+        
+      if (paymentMethodsError) throw paymentMethodsError;
+      
+      if (paymentMethodsData) {
+        setSavedPaymentMethods(paymentMethodsData);
+      }
+      
       // Fetch invoices
-      const { data: invoicesData } = await supabase
+      const { data: invoicesData, error: invoicesError } = await supabase
         .from('invoices')
         .select('*')
         .eq('client_id', currentUser?.id)
         .order('date', { ascending: false });
       
+      if (invoicesError) throw invoicesError;
+      
       if (invoicesData) {
         setInvoices(invoicesData || []);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching billing data:', error);
+      setError(error.message || 'Failed to load billing data');
     } finally {
       setIsLoading(false);
     }
@@ -101,8 +126,20 @@ const Billing: React.FC = () => {
   
   const handlePaymentSuccess = () => {
     setShowPaymentDialog(false);
+    setShowAddPaymentMethodDialog(false);
     setSelectedInvoice(null);
     fetchData(); // Refresh data
+  };
+  
+  const handleAddPaymentMethod = () => {
+    setShowAddPaymentMethodDialog(true);
+  };
+  
+  // Default payment method display if none saved
+  const defaultPaymentMethod = {
+    type: 'card',
+    details: 'No payment methods saved',
+    isDefault: true,
   };
   
   if (!currentUser) return null;
@@ -112,9 +149,18 @@ const Billing: React.FC = () => {
       <DashboardHeader pageTitle="Payments & Billing" />
       
       <div className="p-6">
+        {error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        
         <Tabs defaultValue="subscription" value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="mb-6">
             <TabsTrigger value="subscription">Subscription</TabsTrigger>
+            <TabsTrigger value="payment-methods">Payment Methods</TabsTrigger>
             <TabsTrigger value="payment-history">Payment History</TabsTrigger>
             <TabsTrigger value="invoices">Invoices</TabsTrigger>
           </TabsList>
@@ -141,7 +187,7 @@ const Billing: React.FC = () => {
                           <div className="space-y-1">
                             <div className="text-sm text-muted-foreground">Subscription Status</div>
                             <div className="flex items-center">
-                              <Badge className="bg-green-500">
+                              <Badge className="bg-green-500 text-white">
                                 {currentUser.subscriptionStatus.charAt(0).toUpperCase() + 
                                  currentUser.subscriptionStatus.slice(1)}
                               </Badge>
@@ -173,13 +219,21 @@ const Billing: React.FC = () => {
                             <div className="text-sm text-muted-foreground">Payment Method</div>
                             <div className="flex items-center">
                               <CreditCard className="h-4 w-4 mr-2 text-primary" />
-                              Visa ending in 1234
+                              {savedPaymentMethods.length > 0 ? (
+                                <span>
+                                  {savedPaymentMethods[0].card_type} ending in {savedPaymentMethods[0].last_four}
+                                </span>
+                              ) : (
+                                <span>No payment method on file</span>
+                              )}
                             </div>
                           </div>
                         </div>
                         
                         <div className="pt-4 flex flex-wrap gap-3">
-                          <Button onClick={() => setShowPaymentDialog(true)}>Update Payment Method</Button>
+                          <Button onClick={handleAddPaymentMethod}>
+                            {savedPaymentMethods.length > 0 ? 'Update Payment Method' : 'Add Payment Method'}
+                          </Button>
                           <Button variant="outline">Cancel Subscription</Button>
                         </div>
                       </div>
@@ -223,6 +277,70 @@ const Billing: React.FC = () => {
             </div>
           </TabsContent>
           
+          <TabsContent value="payment-methods">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <div className="space-y-1">
+                  <CardTitle>Payment Methods</CardTitle>
+                  <CardDescription>
+                    Manage your saved payment methods
+                  </CardDescription>
+                </div>
+                <Button size="sm" className="ml-auto" onClick={handleAddPaymentMethod}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add New
+                </Button>
+              </CardHeader>
+              <CardContent className="pt-6">
+                {isLoading ? (
+                  <div className="flex justify-center py-6">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {savedPaymentMethods.length > 0 ? (
+                      savedPaymentMethods.map((method) => (
+                        <div key={method.id} className="flex items-center justify-between border-b pb-4">
+                          <div className="flex items-center space-x-3">
+                            <CreditCard className="h-8 w-8 text-primary" />
+                            <div>
+                              <div className="font-medium">
+                                {method.card_type} •••• {method.last_four}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                Expires {method.expiry_month}/{method.expiry_year}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center space-x-2">
+                            {method.is_default && (
+                              <Badge className="bg-green-500 text-white">Default</Badge>
+                            )}
+                            <Button variant="ghost" size="sm">Edit</Button>
+                            <Button variant="ghost" size="sm">Remove</Button>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8">
+                        <CreditCard className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                        <h3 className="text-lg font-medium mb-2">No payment methods saved</h3>
+                        <p className="text-muted-foreground mb-6">
+                          Add a payment method to easily manage your subscription and invoices
+                        </p>
+                        <Button onClick={handleAddPaymentMethod}>
+                          <Plus className="mr-2 h-4 w-4" />
+                          Add Payment Method
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
           <TabsContent value="payment-history">
             <Card>
               <CardHeader>
@@ -243,6 +361,7 @@ const Billing: React.FC = () => {
                         <TableHead>Date</TableHead>
                         <TableHead>Description</TableHead>
                         <TableHead>Amount</TableHead>
+                        <TableHead>Method</TableHead>
                         <TableHead>Status</TableHead>
                         <TableHead>Reference</TableHead>
                       </TableRow>
@@ -253,12 +372,13 @@ const Billing: React.FC = () => {
                           <TableCell>{new Date(payment.date).toLocaleDateString()}</TableCell>
                           <TableCell>{payment.description}</TableCell>
                           <TableCell>${payment.amount}</TableCell>
+                          <TableCell className="capitalize">{payment.method || 'Card'}</TableCell>
                           <TableCell>
-                            <Badge className={payment.status === 'completed' ? 'bg-green-500' : ''}>
+                            <Badge className={payment.status === 'completed' ? 'bg-green-500 text-white' : ''}>
                               {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
                             </Badge>
                           </TableCell>
-                          <TableCell>{payment.invoice_number || '-'}</TableCell>
+                          <TableCell>{payment.id.substring(0, 8) || '-'}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -303,7 +423,7 @@ const Billing: React.FC = () => {
                           <TableCell>{new Date(invoice.date).toLocaleDateString()}</TableCell>
                           <TableCell>${invoice.amount}</TableCell>
                           <TableCell>
-                            <Badge className={invoice.status === 'paid' ? 'bg-green-500' : ''}>
+                            <Badge className={invoice.status === 'paid' ? 'bg-green-500 text-white' : ''}>
                               {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
                             </Badge>
                           </TableCell>
@@ -339,7 +459,7 @@ const Billing: React.FC = () => {
         </Tabs>
       </div>
       
-      {/* Payment Dialog */}
+      {/* Payment Dialog for invoices */}
       <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -362,6 +482,24 @@ const Billing: React.FC = () => {
             amount={selectedInvoice ? selectedInvoice.amount : monthlyCost}
             onSuccess={handlePaymentSuccess}
             onCancel={() => setShowPaymentDialog(false)}
+          />
+        </DialogContent>
+      </Dialog>
+      
+      {/* Add Payment Method Dialog */}
+      <Dialog open={showAddPaymentMethodDialog} onOpenChange={setShowAddPaymentMethodDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Payment Method</DialogTitle>
+            <DialogDescription>
+              Enter your payment details to save a new payment method
+            </DialogDescription>
+          </DialogHeader>
+          
+          <PaymentForm
+            amount={0}
+            onSuccess={handlePaymentSuccess}
+            onCancel={() => setShowAddPaymentMethodDialog(false)}
           />
         </DialogContent>
       </Dialog>

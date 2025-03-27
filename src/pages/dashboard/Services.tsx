@@ -4,18 +4,19 @@ import { useAuth } from '@/contexts/AuthContext';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import ServiceCard from '@/components/dashboard/ServiceCard';
 import ServiceSelectionCard from '@/components/dashboard/ServiceSelectionCard';
-import { getServiceByTitle, serviceOptions } from '@/lib/services-data';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const Services: React.FC = () => {
   const { currentUser } = useAuth();
   const [availableServices, setAvailableServices] = useState<any[]>([]);
   const [activeServices, setActiveServices] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
     if (currentUser) {
@@ -25,27 +26,46 @@ const Services: React.FC = () => {
   
   const fetchServices = async () => {
     setIsLoading(true);
+    setError(null);
+    
     try {
       // Fetch all services from database
-      const { data: servicesData, error } = await supabase
+      const { data: servicesData, error: servicesError } = await supabase
         .from('services')
         .select('*')
         .order('price', { ascending: true });
       
-      if (error) throw error;
+      if (servicesError) throw servicesError;
       
-      if (servicesData && currentUser) {
+      // If no data in services table, fallback to local data
+      let formattedServices = [];
+      
+      if (servicesData && servicesData.length > 0) {
         // Format services with the expected structure
-        const formattedServices = servicesData.map(service => ({
+        formattedServices = servicesData.map(service => ({
           id: service.id,
           title: service.name,
           description: service.description || '',
           price: service.price,
-          priceUnit: 'month',
+          priceUnit: service.price_unit || 'month',
           features: service.features || [],
           category: service.category,
         }));
-        
+      } else {
+        // Fallback to local data from services-data.ts
+        const { serviceOptions } = await import('@/lib/services-data');
+        formattedServices = serviceOptions.map(service => ({
+          id: service.id,
+          title: service.title,
+          description: service.description,
+          price: service.price,
+          priceUnit: service.priceUnit,
+          features: service.features,
+          category: '',
+        }));
+      }
+      
+      if (currentUser) {
         // Split into active and available services
         const active = formattedServices.filter(service => 
           currentUser.selectedServices.includes(service.title)
@@ -58,8 +78,9 @@ const Services: React.FC = () => {
         setActiveServices(active);
         setAvailableServices(available);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching services:', error);
+      setError(error.message || 'Failed to load services');
     } finally {
       setIsLoading(false);
     }
@@ -72,11 +93,19 @@ const Services: React.FC = () => {
       <DashboardHeader pageTitle="My Services" />
       
       <div className="p-6">
+        {error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        
         <Tabs defaultValue="active" className="w-full">
           <TabsList className="mb-6">
             <TabsTrigger value="active">
               Active Services
-              <Badge className="ml-2 bg-green-500">{activeServices.length}</Badge>
+              <Badge className="ml-2 bg-green-500 text-white">{activeServices.length}</Badge>
             </TabsTrigger>
             <TabsTrigger value="available">
               Available Services
@@ -111,7 +140,7 @@ const Services: React.FC = () => {
               <div className="flex justify-center py-10">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
-            ) : (
+            ) : availableServices.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {availableServices.map(service => (
                   <ServiceSelectionCard 
@@ -121,6 +150,14 @@ const Services: React.FC = () => {
                   />
                 ))}
               </div>
+            ) : (
+              <Card>
+                <CardContent className="pt-6 text-center">
+                  <p className="text-muted-foreground">
+                    No additional services are available at this time.
+                  </p>
+                </CardContent>
+              </Card>
             )}
           </TabsContent>
         </Tabs>
