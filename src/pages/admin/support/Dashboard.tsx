@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -54,7 +53,6 @@ const SupportDashboard: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
   
-  // View ticket dialog state
   const [isViewTicketOpen, setIsViewTicketOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<any>(null);
   const [ticketMessages, setTicketMessages] = useState<any[]>([]);
@@ -78,7 +76,6 @@ const SupportDashboard: React.FC = () => {
       
       if (ticketsError) throw ticketsError;
       
-      // Add client details to tickets
       const enhancedTickets = ticketsData?.map(ticket => {
         const client = clientsData?.find(c => c.id === ticket.client_id);
         return {
@@ -124,7 +121,6 @@ const SupportDashboard: React.FC = () => {
   useEffect(() => {
     fetchTickets();
     
-    // Set up realtime subscription for ticket updates
     const ticketsChannel = supabase
       .channel('public:tickets')
       .on('postgres_changes', { 
@@ -145,7 +141,6 @@ const SupportDashboard: React.FC = () => {
     if (selectedTicket?.id) {
       fetchTicketMessages(selectedTicket.id);
       
-      // Set up realtime subscription for ticket message updates
       const messagesChannel = supabase
         .channel('public:ticket_messages')
         .on('postgres_changes', { 
@@ -184,7 +179,6 @@ const SupportDashboard: React.FC = () => {
       
       if (error) throw error;
       
-      // Update ticket status to 'in_progress' if it's 'open'
       if (selectedTicket.status === 'open') {
         await supabase
           .from('tickets')
@@ -300,7 +294,6 @@ const SupportDashboard: React.FC = () => {
     }
   };
   
-  // Filter tickets based on search and filters
   const filteredTickets = tickets.filter(ticket => {
     const matchesSearch = 
       ticket.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -318,7 +311,6 @@ const SupportDashboard: React.FC = () => {
     return matchesSearch && matchesStatus && matchesPriority;
   });
   
-  // Format date
   const formatDate = (dateString: string) => {
     if (!dateString) return 'N/A';
     
@@ -345,7 +337,6 @@ const SupportDashboard: React.FC = () => {
     }
   };
   
-  // Format message timestamp
   const formatMessageTime = (dateString: string) => {
     if (!dateString) return '';
     
@@ -355,7 +346,6 @@ const SupportDashboard: React.FC = () => {
     });
   };
   
-  // Get status badge color
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
       case 'open':
@@ -363,7 +353,7 @@ const SupportDashboard: React.FC = () => {
       case 'in_progress':
         return 'default';
       case 'resolved':
-        return 'success';
+        return 'default';
       case 'closed':
         return 'outline';
       default:
@@ -371,7 +361,6 @@ const SupportDashboard: React.FC = () => {
     }
   };
   
-  // Get priority badge color
   const getPriorityBadgeVariant = (priority: string) => {
     switch (priority) {
       case 'high':
@@ -638,7 +627,6 @@ const SupportDashboard: React.FC = () => {
         </CardContent>
       </Card>
       
-      {/* View Ticket Dialog */}
       <Dialog open={isViewTicketOpen} onOpenChange={setIsViewTicketOpen}>
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>

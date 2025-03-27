@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -49,7 +48,6 @@ const ClientBillingSection: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   
-  // Invoice dialog state
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [newInvoice, setNewInvoice] = useState({
@@ -62,7 +60,6 @@ const ClientBillingSection: React.FC = () => {
   const fetchTransactions = async () => {
     setIsLoading(true);
     try {
-      // First get all clients
       const { data: clientsData, error: clientsError } = await supabase
         .from('clients')
         .select('id, name, email, status, subscription_status');
@@ -71,7 +68,6 @@ const ClientBillingSection: React.FC = () => {
       
       setClients(clientsData || []);
       
-      // Then get transactions
       const { data, error } = await supabase
         .from('transactions')
         .select('*')
@@ -79,7 +75,6 @@ const ClientBillingSection: React.FC = () => {
       
       if (error) throw error;
       
-      // Add client details to transactions
       const enhancedTransactions = data?.map(transaction => {
         const client = clientsData?.find(c => c.id === transaction.client_id);
         return {
@@ -103,7 +98,6 @@ const ClientBillingSection: React.FC = () => {
   useEffect(() => {
     fetchTransactions();
     
-    // Set up realtime subscription for transaction updates
     const channel = supabase
       .channel('public:transactions')
       .on('postgres_changes', { 
@@ -120,7 +114,6 @@ const ClientBillingSection: React.FC = () => {
     };
   }, []);
 
-  // Handle creating a new invoice
   const handleCreateInvoice = async () => {
     if (!selectedClient || !newInvoice.amount || !newInvoice.description) {
       toast.error('Client, amount, and description are required');
@@ -129,7 +122,6 @@ const ClientBillingSection: React.FC = () => {
     
     setIsLoading(true);
     try {
-      // Generate invoice number if not provided
       const invoiceNumber = newInvoice.invoice_number || 
         `INV-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
       
@@ -152,7 +144,6 @@ const ClientBillingSection: React.FC = () => {
       toast.success('Invoice created successfully');
       setIsInvoiceDialogOpen(false);
       
-      // Reset form
       setNewInvoice({
         amount: '',
         description: '',
@@ -169,13 +160,11 @@ const ClientBillingSection: React.FC = () => {
     }
   };
 
-  // Open invoice dialog with client data
   const openInvoiceDialog = (client: Client) => {
     setSelectedClient(client);
     setIsInvoiceDialogOpen(true);
   };
 
-  // Filter transactions based on search and filters
   const filteredTransactions = transactions.filter(transaction => {
     const matchesSearch = 
       transaction.client?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -190,7 +179,6 @@ const ClientBillingSection: React.FC = () => {
     return matchesSearch && matchesStatus;
   });
 
-  // Format currency
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -200,7 +188,6 @@ const ClientBillingSection: React.FC = () => {
     }).format(amount);
   };
 
-  // Format date
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -209,11 +196,10 @@ const ClientBillingSection: React.FC = () => {
     });
   };
 
-  // Get badge color for transaction status
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
       case 'completed':
-        return 'success';
+        return 'default';
       case 'pending':
         return 'secondary';
       case 'failed':
@@ -355,7 +341,6 @@ const ClientBillingSection: React.FC = () => {
         </CardContent>
       </Card>
       
-      {/* Client List for Creating Invoices */}
       <Card>
         <CardHeader>
           <CardTitle>Active Clients</CardTitle>
@@ -378,7 +363,7 @@ const ClientBillingSection: React.FC = () => {
                   </CardHeader>
                   <CardFooter className="p-4 pt-0 flex justify-between">
                     <Badge variant={
-                      client.subscription_status === 'active' ? 'success' :
+                      client.subscription_status === 'active' ? 'default' :
                       client.subscription_status === 'pending' ? 'secondary' : 
                       'outline'
                     }>
@@ -398,7 +383,6 @@ const ClientBillingSection: React.FC = () => {
         </CardContent>
       </Card>
       
-      {/* Create Invoice Dialog */}
       <Dialog open={isInvoiceDialogOpen} onOpenChange={setIsInvoiceDialogOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
