@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import { Button } from '@/components/ui/button';
@@ -25,34 +26,8 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { Loader2, MessageSquare, PlusCircle } from 'lucide-react';
-
-// Sample ticket data
-const sampleTickets = [
-  {
-    id: 'TKT-001',
-    subject: 'Billing question',
-    status: 'open',
-    priority: 'medium',
-    createdAt: '2023-07-01T10:30:00Z',
-    lastUpdated: '2023-07-01T10:30:00Z',
-  },
-  {
-    id: 'TKT-002',
-    subject: 'Service upgrade request',
-    status: 'in-progress',
-    priority: 'high',
-    createdAt: '2023-06-28T14:45:00Z',
-    lastUpdated: '2023-06-29T09:15:00Z',
-  },
-  {
-    id: 'TKT-003',
-    subject: 'Website is down',
-    status: 'resolved',
-    priority: 'high',
-    createdAt: '2023-06-25T08:20:00Z',
-    lastUpdated: '2023-06-26T11:45:00Z',
-  }
-];
+import { supabase } from '@/integrations/supabase/client';
+import { SupportTicket } from '@/lib/types';
 
 // Status colors for the badges
 const statusColors: Record<string, string> = {
@@ -73,7 +48,8 @@ const Support: React.FC = () => {
   const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState('new-ticket');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [tickets, setTickets] = useState(sampleTickets);
+  const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
   // Form state for new ticket
   const [ticketForm, setTicketForm] = useState({
@@ -82,6 +58,44 @@ const Support: React.FC = () => {
     priority: 'medium',
     serviceRelated: '',
   });
+  
+  useEffect(() => {
+    if (currentUser) {
+      fetchTickets();
+    }
+  }, [currentUser]);
+
+  const fetchTickets = async () => {
+    if (!currentUser) return;
+    
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('tickets')
+        .select('*')
+        .eq('client_id', currentUser.id)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      // Transform data to match our SupportTicket type
+      const formattedTickets = data.map(ticket => ({
+        id: ticket.id,
+        subject: ticket.subject,
+        status: ticket.status,
+        priority: ticket.priority,
+        createdAt: ticket.created_at,
+        lastUpdated: ticket.updated_at,
+      }));
+      
+      setTickets(formattedTickets);
+    } catch (error) {
+      console.error('Error fetching tickets:', error);
+      toast.error('Failed to load support tickets');
+    } finally {
+      setIsLoading(false);
+    }
+  };
   
   if (!currentUser) return null;
   
@@ -107,20 +121,42 @@ const Support: React.FC = () => {
     setIsSubmitting(true);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Create ticket in database
+      const { data, error } = await supabase
+        .from('tickets')
+        .insert({
+          subject: ticketForm.subject,
+          client_id: currentUser.id,
+          priority: ticketForm.priority,
+          status: 'open',
+          category: ticketForm.serviceRelated || null
+        })
+        .select()
+        .single();
       
-      // Create new ticket
-      const newTicket = {
-        id: `TKT-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`,
-        subject: ticketForm.subject,
-        status: 'open',
-        priority: ticketForm.priority,
-        createdAt: new Date().toISOString(),
-        lastUpdated: new Date().toISOString(),
+      if (error) throw error;
+      
+      // Add initial message
+      const { error: messageError } = await supabase
+        .from('ticket_messages')
+        .insert({
+          ticket_id: data.id,
+          content: ticketForm.message,
+          sender: 'client'
+        });
+      
+      if (messageError) throw messageError;
+      
+      // Add new ticket to state
+      const newTicket: SupportTicket = {
+        id: data.id,
+        subject: data.subject,
+        status: data.status,
+        priority: data.priority,
+        createdAt: data.created_at,
+        lastUpdated: data.updated_at
       };
       
-      // Add to tickets array
       setTickets([newTicket, ...tickets]);
       
       // Reset form
@@ -136,6 +172,7 @@ const Support: React.FC = () => {
       // Switch to tickets tab
       setActiveTab('tickets');
     } catch (error) {
+      console.error('Failed to create support ticket:', error);
       toast.error('Failed to create support ticket');
     } finally {
       setIsSubmitting(false);
@@ -266,7 +303,11 @@ const Support: React.FC = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {tickets.length > 0 ? (
+                {isLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : tickets.length > 0 ? (
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -281,7 +322,7 @@ const Support: React.FC = () => {
                     <TableBody>
                       {tickets.map(ticket => (
                         <TableRow key={ticket.id} className="cursor-pointer hover:bg-secondary">
-                          <TableCell className="font-medium">{ticket.id}</TableCell>
+                          <TableCell className="font-medium">{ticket.id.slice(0, 8)}</TableCell>
                           <TableCell>{ticket.subject}</TableCell>
                           <TableCell>
                             <Badge className={statusColors[ticket.status]}>
