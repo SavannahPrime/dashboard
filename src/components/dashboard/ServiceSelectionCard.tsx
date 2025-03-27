@@ -1,135 +1,84 @@
 
-import React, { useState } from 'react';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import React from 'react';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, PlusCircle, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
-import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-
-interface ServiceProps {
-  id: string;
-  title: string;
-  description: string;
-  features: string[];
-  price: number;
-  priceUnit: string;
-  category?: string;
-  icon?: React.ReactNode;
-}
+import { CheckCircle2, Loader2 } from 'lucide-react';
 
 interface ServiceSelectionCardProps {
-  service: ServiceProps;
-  isActive?: boolean;
+  service: {
+    id: string;
+    title: string;
+    description: string;
+    price: number;
+    priceUnit: string;
+    features: string[];
+    category?: string;
+  };
+  isActive: boolean;
+  onActivate?: () => void;
+  isLoading?: boolean;
 }
 
-const ServiceSelectionCard: React.FC<ServiceSelectionCardProps> = ({
-  service,
-  isActive = false,
+const ServiceSelectionCard: React.FC<ServiceSelectionCardProps> = ({ 
+  service, 
+  isActive,
+  onActivate,
+  isLoading = false
 }) => {
-  const { currentUser, updateUser } = useAuth();
-  const [isLoading, setIsLoading] = useState(false);
-  
-  const handleAddService = async () => {
-    if (!currentUser) {
-      toast.error('You need to be logged in to add services');
-      return;
-    }
-    
-    setIsLoading(true);
-    
-    try {
-      // Add to user's selected services
-      const updatedServices = [...(currentUser.selectedServices || []), service.title];
-      
-      // Update in database
-      const { error } = await supabase
-        .from('clients')
-        .update({ selected_services: updatedServices })
-        .eq('id', currentUser.id);
-      
-      if (error) throw error;
-      
-      // Update local user state
-      updateUser({ selectedServices: updatedServices });
-      
-      toast.success(`Added ${service.title} to your account!`);
-      
-      // Create a transaction record
-      await supabase
-        .from('transactions')
-        .insert({
-          client_id: currentUser.id,
-          amount: service.price,
-          type: 'subscription',
-          status: 'pending',
-          description: `Subscription to ${service.title}`
-        });
-      
-    } catch (error) {
-      console.error('Error adding service:', error);
-      toast.error('Failed to add service');
-    } finally {
-      setIsLoading(false);
-    }
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(price);
   };
   
   return (
-    <Card className={`overflow-hidden transition-all duration-300 ${isActive ? 'border-primary' : ''}`}>
-      <CardHeader className="pb-3">
+    <Card className={`flex flex-col h-full transition-shadow duration-300 ${isActive ? 'border-primary shadow-md' : 'hover:shadow-md'}`}>
+      <CardHeader>
         <div className="flex justify-between items-start">
           <div>
             <CardTitle>{service.title}</CardTitle>
-            <CardDescription className="mt-1.5">{service.description}</CardDescription>
+            <CardDescription className="mt-1">{service.description}</CardDescription>
           </div>
-          {isActive && (
-            <Badge className="bg-green-500 text-white">Active</Badge>
+          {service.category && (
+            <Badge variant="outline">{service.category}</Badge>
           )}
         </div>
       </CardHeader>
-      <CardContent className="pb-3">
-        <div className="text-2xl font-bold mb-4">
-          ${service.price}<span className="text-sm font-normal text-muted-foreground">/{service.priceUnit}</span>
+      <CardContent className="flex-1">
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-2xl font-bold">{formatPrice(service.price)}</span>
+          <span className="text-muted-foreground">/{service.priceUnit}</span>
         </div>
         
-        <ul className="space-y-2 text-sm">
+        <div className="space-y-2">
           {service.features.map((feature, index) => (
-            <li key={index} className="flex items-start">
-              <CheckCircle2 className="h-4 w-4 text-green-500 mr-2 mt-0.5" />
+            <div key={index} className="flex items-start gap-2">
+              <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
               <span>{feature}</span>
-            </li>
+            </div>
           ))}
-        </ul>
+        </div>
       </CardContent>
       <CardFooter>
         {isActive ? (
-          <Button variant="outline" className="w-full" disabled>
-            Current Plan
+          <Button className="w-full" variant="outline" disabled>
+            Active
           </Button>
         ) : (
           <Button 
             className="w-full" 
-            onClick={handleAddService}
+            onClick={onActivate}
             disabled={isLoading}
           >
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Adding...
+                Activating...
               </>
             ) : (
-              <>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Add Service
-              </>
+              'Activate Service'
             )}
           </Button>
         )}
