@@ -151,27 +151,21 @@ export type Database = {
           communication_id: string | null
           content: string
           id: string
-          is_public: boolean | null
           sender: string
-          sender_id: string | null
           timestamp: string | null
         }
         Insert: {
           communication_id?: string | null
           content: string
           id?: string
-          is_public?: boolean | null
           sender: string
-          sender_id?: string | null
           timestamp?: string | null
         }
         Update: {
           communication_id?: string | null
           content?: string
           id?: string
-          is_public?: boolean | null
           sender?: string
-          sender_id?: string | null
           timestamp?: string | null
         }
         Relationships: [
@@ -180,13 +174,6 @@ export type Database = {
             columns: ["communication_id"]
             isOneToOne: false
             referencedRelation: "communications"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "communication_messages_sender_id_fkey"
-            columns: ["sender_id"]
-            isOneToOne: false
-            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]
@@ -225,69 +212,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      departments: {
-        Row: {
-          created_at: string
-          description: string | null
-          id: string
-          manager_id: string | null
-          name: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          manager_id?: string | null
-          name: string
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          manager_id?: string | null
-          name?: string
-        }
-        Relationships: []
-      }
-      employees: {
-        Row: {
-          created_at: string
-          department: string
-          email: string
-          id: string
-          last_active: string | null
-          name: string
-          permissions: string[] | null
-          profile_image: string | null
-          role: string
-          status: string
-        }
-        Insert: {
-          created_at?: string
-          department: string
-          email: string
-          id?: string
-          last_active?: string | null
-          name: string
-          permissions?: string[] | null
-          profile_image?: string | null
-          role: string
-          status?: string
-        }
-        Update: {
-          created_at?: string
-          department?: string
-          email?: string
-          id?: string
-          last_active?: string | null
-          name?: string
-          permissions?: string[] | null
-          profile_image?: string | null
-          role?: string
-          status?: string
-        }
-        Relationships: []
       }
       message_templates: {
         Row: {
@@ -349,56 +273,6 @@ export type Database = {
         }
         Relationships: []
       }
-      tasks: {
-        Row: {
-          assigned_to: string
-          completed_at: string | null
-          created_at: string
-          created_by: string
-          description: string | null
-          due_date: string | null
-          id: string
-          priority: string
-          status: string
-          tags: string[] | null
-          title: string
-        }
-        Insert: {
-          assigned_to: string
-          completed_at?: string | null
-          created_at?: string
-          created_by: string
-          description?: string | null
-          due_date?: string | null
-          id?: string
-          priority?: string
-          status?: string
-          tags?: string[] | null
-          title: string
-        }
-        Update: {
-          assigned_to?: string
-          completed_at?: string | null
-          created_at?: string
-          created_by?: string
-          description?: string | null
-          due_date?: string | null
-          id?: string
-          priority?: string
-          status?: string
-          tags?: string[] | null
-          title?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "tasks_assigned_to_fkey"
-            columns: ["assigned_to"]
-            isOneToOne: false
-            referencedRelation: "employees"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       ticket_messages: {
         Row: {
           content: string
@@ -439,8 +313,6 @@ export type Database = {
           created_at: string | null
           id: string
           priority: string
-          refund_amount: number | null
-          refund_service: string | null
           status: string
           subject: string
           updated_at: string | null
@@ -452,8 +324,6 @@ export type Database = {
           created_at?: string | null
           id?: string
           priority?: string
-          refund_amount?: number | null
-          refund_service?: string | null
           status?: string
           subject: string
           updated_at?: string | null
@@ -465,8 +335,6 @@ export type Database = {
           created_at?: string | null
           id?: string
           priority?: string
-          refund_amount?: number | null
-          refund_service?: string | null
           status?: string
           subject?: string
           updated_at?: string | null

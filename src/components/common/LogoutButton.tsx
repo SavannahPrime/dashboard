@@ -12,15 +12,13 @@ interface LogoutButtonProps {
   variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
   size?: 'default' | 'sm' | 'lg' | 'icon';
   className?: string;
-  children?: React.ReactNode;
 }
 
 const LogoutButton: React.FC<LogoutButtonProps> = ({ 
   isAdminLogout = false, 
   variant = 'ghost',
   size = 'default',
-  className = '',
-  children
+  className = ''
 }) => {
   const navigate = useNavigate();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -32,23 +30,28 @@ const LogoutButton: React.FC<LogoutButtonProps> = ({
     
     try {
       setIsLoggingOut(true);
+      toast.loading('Logging out...');
       
-      // Navigate immediately to reduce perceived delay
       if (isAdminLogout) {
-        // Start logout process but don't await
-        adminLogout();
-        navigate('/admin/login');
+        await adminLogout();
+        // Short delay to ensure state is updated
+        setTimeout(() => {
+          navigate('/admin/login');
+        }, 100);
       } else {
-        // Start logout process but don't await
-        clientLogout();
-        navigate('/login');
+        await clientLogout();
+        setTimeout(() => {
+          navigate('/login');
+        }, 100);
       }
       
-      // Show success toast after navigation has started
+      toast.dismiss();
       toast.success('Successfully logged out');
     } catch (error) {
       console.error('Logout error:', error);
+      toast.dismiss();
       toast.error('Failed to log out. Please try again.');
+    } finally {
       setIsLoggingOut(false);
     }
   };
@@ -64,13 +67,9 @@ const LogoutButton: React.FC<LogoutButtonProps> = ({
       {isLoggingOut ? (
         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
       ) : (
-        children || (
-          <>
-            <LogOut className="h-4 w-4 mr-2" />
-            Log Out
-          </>
-        )
+        <LogOut className="h-4 w-4 mr-2" />
       )}
+      Log Out
     </Button>
   );
 };

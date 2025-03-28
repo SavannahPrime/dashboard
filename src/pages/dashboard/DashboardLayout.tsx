@@ -1,35 +1,15 @@
 
-import React, { Suspense, useState, useEffect } from 'react';
-import { Outlet, Navigate, useLocation } from 'react-router-dom';
+import React, { Suspense } from 'react';
+import { Outlet, Navigate } from 'react-router-dom';
 import DashboardSidebar from '@/components/dashboard/DashboardSidebar';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2, Menu, X } from 'lucide-react';
+import { Loader2, Menu } from 'lucide-react';
 import { Toaster } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 
 const DashboardLayout: React.FC = () => {
   const { isAuthenticated, isLoading } = useAuth();
-  const location = useLocation();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
-  
-  // Close sidebar on navigation in mobile view
-  useEffect(() => {
-    if (isMobile && isSidebarOpen) {
-      setIsSidebarOpen(false);
-    }
-  }, [location.pathname, isMobile]);
-  
-  // Update isMobile state on window resize
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
   
   if (isLoading) {
     return (
@@ -47,25 +27,18 @@ const DashboardLayout: React.FC = () => {
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Desktop Sidebar */}
-      <div className="hidden md:block">
-        <DashboardSidebar />
-      </div>
+      <DashboardSidebar />
       
       {/* Mobile Sidebar */}
-      <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
+      <Sheet>
         <SheetTrigger asChild>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="md:hidden fixed top-3 left-3 z-40"
-            onClick={() => setIsSidebarOpen(true)}
-          >
-            {isSidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          <Button variant="ghost" size="icon" className="md:hidden fixed top-3 left-3 z-40">
+            <Menu className="h-5 w-5" />
             <span className="sr-only">Toggle Menu</span>
           </Button>
         </SheetTrigger>
-        <SheetContent side="left" className="p-0 w-64 border-r">
-          <DashboardSidebar className="block w-full h-full border-0" onNavClick={() => setIsSidebarOpen(false)} />
+        <SheetContent side="left" className="p-0 w-64">
+          <DashboardSidebar className="block w-full h-full border-0" />
         </SheetContent>
       </Sheet>
       
