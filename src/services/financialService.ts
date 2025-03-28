@@ -292,9 +292,11 @@ export const exportFinancialReport = async (
       // Add rows
       data.forEach(item => {
         csvContent += `${item.id},`;
-        // Fix: Access clients object correctly by checking if it's an object, not an array
+        
+        // Fix: Access clients properly as a single object, not an array
         const clientData = item.clients || {};
-        const clientName = typeof clientData === 'object' && !Array.isArray(clientData) ? clientData.name || 'Unknown' : 'Unknown';
+        const clientName = clientData.name || 'Unknown';
+        
         csvContent += `"${clientName}",`;
         csvContent += `${item.amount},`;
         csvContent += `${new Date(item.date).toLocaleDateString()},`;
