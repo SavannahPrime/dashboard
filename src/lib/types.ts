@@ -1,3 +1,4 @@
+
 import { LucideIcon } from "lucide-react";
 
 export type NavItem = {
@@ -72,4 +73,52 @@ export interface Transaction {
   date: string;
   status: string;
   service_name: string;
+}
+
+// Add the missing PaymentType interface
+export interface PaymentType {
+  id: string;
+  client_id: string;
+  amount: number;
+  status: string;
+  method: string;
+  description: string;
+  date: string;
+  type: string;
+  invoice_number?: string;
+}
+
+// Add the missing SupportTicket interface
+export interface SupportTicket {
+  id: string;
+  subject: string;
+  message: string;
+  status: string;
+  priority: string;
+  createdAt: string;
+  lastUpdated: string;
+}
+
+// Add missing props interfaces for components
+export interface StatCardProps {
+  title: string;
+  value: string;
+  description?: string; // Make description optional
+  icon?: React.ReactNode;
+  actionLabel?: string;
+  onAction?: () => void;
+  highlighted?: boolean;
+}
+
+export interface ServiceCardProps {
+  service: ServiceOption;
+  onRemove?: () => Promise<void>;
+  isUpdating?: boolean;
+}
+
+export interface ServiceSelectionCardProps {
+  service: ServiceOption;
+  isSelected?: boolean;
+  onToggle?: () => Promise<void>;
+  isUpdating?: boolean;
 }

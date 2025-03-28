@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,7 +26,6 @@ const Services: React.FC = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [currentTab, setCurrentTab] = useState<'available' | 'selected'>('available');
   
-  // Fetch services from Supabase
   useEffect(() => {
     const fetchServices = async () => {
       setIsLoading(true);
@@ -39,23 +37,21 @@ const Services: React.FC = () => {
         
         if (error) throw error;
         
-        // Transform data to match ServiceOption structure
         const formattedServices = data.map(service => ({
           id: service.id,
           name: service.name,
-          title: service.name, // Map name to title
+          title: service.name,
           description: service.description || '',
           price: Number(service.price),
           priceUnit: 'month',
           features: service.features || [],
           category: service.category,
-          icon: Globe // Default icon
+          icon: Globe
         }));
         
         setServices(formattedServices);
         setFilteredServices(formattedServices);
         
-        // Extract unique categories
         const uniqueCategories = Array.from(
           new Set(formattedServices.map(service => service.category).filter(Boolean))
         ) as string[];
@@ -72,7 +68,6 @@ const Services: React.FC = () => {
     fetchServices();
   }, []);
   
-  // Fetch user's selected services
   useEffect(() => {
     if (currentUser?.id) {
       const fetchUserServices = async () => {
@@ -95,7 +90,6 @@ const Services: React.FC = () => {
     }
   }, [currentUser?.id]);
   
-  // Filter services by category
   useEffect(() => {
     if (activeCategory === 'all') {
       setFilteredServices(services);
@@ -116,7 +110,6 @@ const Services: React.FC = () => {
     
     setIsUpdating(true);
     try {
-      // Toggle service selection
       let updatedSelectedServices: string[];
       
       if (selectedServices.includes(serviceId)) {
@@ -125,7 +118,6 @@ const Services: React.FC = () => {
         updatedSelectedServices = [...selectedServices, serviceId];
       }
       
-      // Update in Supabase
       const { error } = await supabase
         .from('clients')
         .update({ selected_services: updatedSelectedServices })
@@ -133,7 +125,6 @@ const Services: React.FC = () => {
       
       if (error) throw error;
       
-      // Update local state
       setSelectedServices(updatedSelectedServices);
       refreshUserData();
       
@@ -180,7 +171,6 @@ const Services: React.FC = () => {
         </TabsList>
         
         <TabsContent value="available" className="space-y-6">
-          {/* Category selection */}
           <div className="flex flex-wrap gap-2">
             <Badge 
               variant={activeCategory === 'all' ? 'default' : 'outline'}
@@ -201,7 +191,6 @@ const Services: React.FC = () => {
             ))}
           </div>
           
-          {/* Services listing */}
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {filteredServices.map(service => (
               <ServiceSelectionCard
