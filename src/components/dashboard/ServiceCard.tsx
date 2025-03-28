@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, HelpCircle, AlertCircle } from 'lucide-react';
+import { CheckCircle2, HelpCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { 
   Dialog,
@@ -15,21 +15,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useNavigate } from 'react-router-dom';
+import { ServiceCardProps } from '@/lib/types';
 
-interface ServiceCardProps {
-  service: {
-    id: string;
-    title: string;
-    description: string;
-    price: number;
-    priceUnit: string;
-    features: string[];
-    category?: string;
-  };
-  onDeactivate?: () => void;
-}
-
-const ServiceCard: React.FC<ServiceCardProps> = ({ service, onDeactivate }) => {
+const ServiceCard: React.FC<ServiceCardProps> = ({ 
+  service, 
+  onRemove,
+  isUpdating = false
+}) => {
   const [isDeactivateDialogOpen, setIsDeactivateDialogOpen] = useState(false);
   const navigate = useNavigate();
   
@@ -104,14 +96,14 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, onDeactivate }) => {
           <DialogTrigger asChild>
             <Button variant="ghost" className="text-destructive hover:text-destructive w-full mt-2">
               <AlertCircle className="mr-2 h-4 w-4" />
-              Deactivate Service
+              Remove Service
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Deactivate Service</DialogTitle>
+              <DialogTitle>Remove Service</DialogTitle>
               <DialogDescription>
-                Are you sure you want to deactivate {service.title}? 
+                Are you sure you want to remove {service.title}? 
                 This will stop your access to the service and cancel future billing.
               </DialogDescription>
             </DialogHeader>
@@ -121,10 +113,18 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, onDeactivate }) => {
                 variant="destructive" 
                 onClick={() => {
                   setIsDeactivateDialogOpen(false);
-                  if (onDeactivate) onDeactivate();
+                  onRemove();
                 }}
+                disabled={isUpdating}
               >
-                Deactivate
+                {isUpdating ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Removing...
+                  </>
+                ) : (
+                  'Remove'
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>

@@ -4,27 +4,13 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, Loader2 } from 'lucide-react';
-
-interface ServiceSelectionCardProps {
-  service: {
-    id: string;
-    title: string;
-    description: string;
-    price: number;
-    priceUnit: string;
-    features: string[];
-    category?: string;
-  };
-  isActive: boolean;
-  onActivate?: () => void;
-  isLoading?: boolean;
-}
+import { ServiceSelectionCardProps } from '@/lib/types';
 
 const ServiceSelectionCard: React.FC<ServiceSelectionCardProps> = ({ 
   service, 
-  isActive,
-  onActivate,
-  isLoading = false
+  isSelected,
+  onToggle,
+  isUpdating = false
 }) => {
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -34,7 +20,7 @@ const ServiceSelectionCard: React.FC<ServiceSelectionCardProps> = ({
   };
   
   return (
-    <Card className={`flex flex-col h-full transition-shadow duration-300 ${isActive ? 'border-primary shadow-md' : 'hover:shadow-md'}`}>
+    <Card className={`flex flex-col h-full transition-shadow duration-300 ${isSelected ? 'border-primary shadow-md' : 'hover:shadow-md'}`}>
       <CardHeader>
         <div className="flex justify-between items-start">
           <div>
@@ -62,26 +48,21 @@ const ServiceSelectionCard: React.FC<ServiceSelectionCardProps> = ({
         </div>
       </CardContent>
       <CardFooter>
-        {isActive ? (
-          <Button className="w-full" variant="outline" disabled>
-            Active
-          </Button>
-        ) : (
-          <Button 
-            className="w-full" 
-            onClick={onActivate}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Activating...
-              </>
-            ) : (
-              'Activate Service'
-            )}
-          </Button>
-        )}
+        <Button 
+          className="w-full" 
+          variant={isSelected ? "outline" : "default"}
+          onClick={onToggle}
+          disabled={isUpdating}
+        >
+          {isUpdating ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              {isSelected ? 'Removing...' : 'Adding...'}
+            </>
+          ) : (
+            isSelected ? 'Remove Service' : 'Add Service'
+          )}
+        </Button>
       </CardFooter>
     </Card>
   );

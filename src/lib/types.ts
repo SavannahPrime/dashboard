@@ -103,22 +103,31 @@ export interface SupportTicket {
 export interface StatCardProps {
   title: string;
   value: string;
-  description: string; // Make description required
+  description: string;
   icon?: React.ReactNode;
   actionLabel?: string;
   onAction?: () => void;
   highlighted?: boolean;
+  change?: {
+    value: number;
+    isPositive: boolean;
+  };
+  subtitle?: string;
 }
 
 export interface ServiceCardProps {
   service: ServiceOption;
-  onRemove: () => Promise<void>; // Make onRemove required
+  onRemove: () => Promise<void>;
   isUpdating?: boolean;
+  onDeactivate?: () => void;
 }
 
 export interface ServiceSelectionCardProps {
   service: ServiceOption;
-  isSelected: boolean; // Make isSelected required
-  onToggle: () => Promise<void>; // Make onToggle required
+  isSelected: boolean;
+  onToggle: () => Promise<void>;
   isUpdating?: boolean;
+  isActive?: boolean;
+  onActivate?: () => void;
+  isLoading?: boolean;
 }
