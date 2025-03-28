@@ -22,6 +22,7 @@ import Support from "./pages/dashboard/Support";
 import NotFound from "./pages/NotFound";
 
 import AdminLogin from "./pages/admin/AdminLogin";
+import AdminAuth from "./pages/admin/AdminAuth";
 import AdminLayout from "./pages/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/Dashboard";
 import UserManagement from "./pages/admin/UserManagement";
@@ -72,6 +73,7 @@ const App = () => (
                 
                 {/* Admin Routes */}
                 <Route path="/admin/login" element={<AdminLogin />} />
+                <Route path="/admin/auth" element={<AdminAuth />} />
                 
                 {/* Main Admin Routes */}
                 <Route path="/admin" element={<AdminLayout />}>
