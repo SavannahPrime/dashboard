@@ -1,46 +1,75 @@
+import { LucideIcon } from "lucide-react";
 
-export interface NotificationType {
+export type NavItem = {
+	title: string;
+	href: string;
+	disabled?: boolean;
+	external?: boolean;
+};
+
+export type SidebarNavItem = {
+	title: string;
+	disabled?: boolean;
+	external?: boolean;
+	icon?: LucideIcon;
+} & (
+	| {
+			href: string;
+			items?: never;
+	  }
+	| {
+			href?: string;
+			items: NavLink[];
+	  }
+);
+
+export type NavLink = {
+	title: string;
+	href: string;
+	disabled?: boolean;
+	external?: boolean;
+};
+
+export type SiteConfig = {
+	name: string;
+	description: string;
+	url: string;
+	ogImage: string;
+	links: {
+		twitter: string;
+		github: string;
+	};
+};
+
+export type DocsConfig = {
+	mainNav: NavItem[];
+	sidebarNav: SidebarNavItem[];
+};
+
+export type MarketingConfig = {
+	mainNav: NavItem[];
+};
+
+type IconType = LucideIcon;
+
+// Define the structure for the service options
+export interface ServiceOption {
   id: string;
   title: string;
-  message: string;
-  type: 'info' | 'success' | 'warning' | 'error';
-  read: boolean;
-  date: string;
+  description: string;
+  price: number;
+  priceUnit: string;
+  features: string[];
+  category?: string;
+  icon?: IconType;  // Make icon optional
+  name?: string;    // Add name field for Supabase compatibility
 }
 
-export interface PaymentType {
+export interface Transaction {
   id: string;
+  client_id: string;
   amount: number;
   date: string;
-  status: 'completed' | 'pending' | 'failed';
-  method: string;
-  description: string;
-}
-
-export interface SupportTicket {
-  id: string;
-  subject: string;
-  message?: string; // Making message optional to match current implementation
-  status: 'open' | 'in-progress' | 'resolved' | 'closed';
-  priority: 'low' | 'medium' | 'high';
-  createdAt: string;
-  lastUpdated: string;
-}
-
-export interface Invoice {
-  id: string;
-  invoiceNumber: string;
-  amount: number;
-  date: string;
-  dueDate: string;
-  status: 'paid' | 'unpaid' | 'overdue';
-  items: InvoiceItem[];
-}
-
-export interface InvoiceItem {
-  id: string;
-  description: string;
-  quantity: number;
-  unitPrice: number;
-  total: number;
+  status: string;
+  service_name: string;
 }

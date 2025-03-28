@@ -151,21 +151,27 @@ export type Database = {
           communication_id: string | null
           content: string
           id: string
+          is_public: boolean | null
           sender: string
+          sender_id: string | null
           timestamp: string | null
         }
         Insert: {
           communication_id?: string | null
           content: string
           id?: string
+          is_public?: boolean | null
           sender: string
+          sender_id?: string | null
           timestamp?: string | null
         }
         Update: {
           communication_id?: string | null
           content?: string
           id?: string
+          is_public?: boolean | null
           sender?: string
+          sender_id?: string | null
           timestamp?: string | null
         }
         Relationships: [
@@ -174,6 +180,13 @@ export type Database = {
             columns: ["communication_id"]
             isOneToOne: false
             referencedRelation: "communications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "communication_messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
             referencedColumns: ["id"]
           },
         ]

@@ -1,277 +1,268 @@
 
-import React, { useEffect, useState } from 'react';
-import { Check, Loader2, Package, AlertTriangle } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AlertCircle, CheckCircle, Globe, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import ServiceCard from '@/components/dashboard/ServiceCard';
-import ServiceSelectionCard from '@/components/dashboard/ServiceSelectionCard';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { useAuth } from '@/contexts/AuthContext';
-import { ServiceOption } from '@/lib/services-data';
+import { ServiceOption } from '@/lib/types';
+import ServiceCard from '@/components/dashboard/ServiceCard';
+import ServiceSelectionCard from '@/components/dashboard/ServiceSelectionCard';
 
 const Services: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('my-services');
-  const [myServices, setMyServices] = useState<ServiceOption[]>([]);
-  const [availableServices, setAvailableServices] = useState<ServiceOption[]>([]);
+  const { currentUser, refreshUserData } = useAuth();
+  const navigate = useNavigate();
+  
+  const [services, setServices] = useState<ServiceOption[]>([]);
+  const [filteredServices, setFilteredServices] = useState<ServiceOption[]>([]);
+  const [selectedServices, setSelectedServices] = useState<string[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [activeCategory, setActiveCategory] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(true);
-  const [isActivating, setIsActivating] = useState<string | null>(null);
-  const { currentUser } = useAuth();
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [currentTab, setCurrentTab] = useState<'available' | 'selected'>('available');
   
-  const fetchServices = async () => {
-    setIsLoading(true);
-    try {
-      if (!currentUser?.id) return;
-      
-      // Fetch all services from the database
-      const { data: servicesData, error: servicesError } = await supabase
-        .from('services')
-        .select('*')
-        .eq('active', true);
-      
-      if (servicesError) throw servicesError;
-      
-      // Fetch client's selected services
-      const { data: clientData, error: clientError } = await supabase
-        .from('clients')
-        .select('selected_services')
-        .eq('id', currentUser.id)
-        .single();
-      
-      if (clientError && clientError.code !== 'PGRST116') {
-        throw clientError;
-      }
-      
-      const selectedServiceIds = clientData?.selected_services || [];
-      
-      // Transform services data to match our interface
-      const transformedServices = servicesData?.map(service => ({
-        id: service.id,
-        name: service.name,
-        title: service.name, // Map name to title for compatibility
-        description: service.description || '',
-        price: Number(service.price),
-        priceUnit: 'month' as const,
-        features: service.features || [],
-        category: service.category,
-        icon: 'globe' // Provide a default icon
-      })) || [];
-      
-      // Separate services into "my" and "available"
-      const myServicesList = transformedServices.filter(service => 
-        selectedServiceIds.includes(service.id)
-      );
-      
-      const availableServicesList = transformedServices.filter(service => 
-        !selectedServiceIds.includes(service.id)
-      );
-      
-      setMyServices(myServicesList);
-      setAvailableServices(availableServicesList);
-    } catch (error: any) {
-      console.error('Error fetching services:', error);
-      toast.error(error.message || 'Failed to load services');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-  
+  // Fetch services from Supabase
   useEffect(() => {
+    const fetchServices = async () => {
+      setIsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('services')
+          .select('*')
+          .eq('active', true);
+        
+        if (error) throw error;
+        
+        // Transform data to match ServiceOption structure
+        const formattedServices = data.map(service => ({
+          id: service.id,
+          name: service.name,
+          title: service.name, // Map name to title
+          description: service.description || '',
+          price: Number(service.price),
+          priceUnit: 'month',
+          features: service.features || [],
+          category: service.category,
+          icon: Globe // Default icon
+        }));
+        
+        setServices(formattedServices);
+        setFilteredServices(formattedServices);
+        
+        // Extract unique categories
+        const uniqueCategories = Array.from(
+          new Set(formattedServices.map(service => service.category).filter(Boolean))
+        ) as string[];
+        
+        setCategories(uniqueCategories);
+      } catch (error) {
+        console.error('Error fetching services:', error);
+        toast.error('Failed to load services');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
     fetchServices();
+  }, []);
+  
+  // Fetch user's selected services
+  useEffect(() => {
+    if (currentUser?.id) {
+      const fetchUserServices = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('clients')
+            .select('selected_services')
+            .eq('id', currentUser.id)
+            .single();
+          
+          if (error) throw error;
+          
+          setSelectedServices(data.selected_services || []);
+        } catch (error) {
+          console.error('Error fetching user services:', error);
+        }
+      };
+      
+      fetchUserServices();
+    }
   }, [currentUser?.id]);
   
-  const handleActivateService = async (serviceId: string) => {
-    try {
-      if (!currentUser?.id) {
-        toast.error('You must be logged in to activate a service');
-        return;
-      }
-      
-      setIsActivating(serviceId);
-      
-      // Get current selected services
-      const { data: clientData, error: clientError } = await supabase
-        .from('clients')
-        .select('selected_services')
-        .eq('id', currentUser.id)
-        .single();
-      
-      if (clientError) throw clientError;
-      
-      const currentServices = clientData?.selected_services || [];
-      const updatedServices = [...currentServices, serviceId];
-      
-      // Update the client's selected services
-      const { error: updateError } = await supabase
-        .from('clients')
-        .update({ selected_services: updatedServices })
-        .eq('id', currentUser.id);
-      
-      if (updateError) throw updateError;
-      
-      // Create a transaction record
-      const serviceToActivate = availableServices.find(s => s.id === serviceId);
-      
-      if (serviceToActivate) {
-        const { error: transactionError } = await supabase
-          .from('transactions')
-          .insert({
-            client_id: currentUser.id,
-            amount: serviceToActivate.price,
-            status: 'pending',
-            type: 'subscription',
-            description: `Subscription for ${serviceToActivate.title}`,
-            date: new Date().toISOString()
-          });
-        
-        if (transactionError) throw transactionError;
-      }
-      
-      toast.success('Service activated successfully!');
-      fetchServices();
-      
-      // Switch to "my services" tab
-      setActiveTab('my-services');
-    } catch (error: any) {
-      console.error('Error activating service:', error);
-      toast.error(error.message || 'Failed to activate service');
-    } finally {
-      setIsActivating(null);
+  // Filter services by category
+  useEffect(() => {
+    if (activeCategory === 'all') {
+      setFilteredServices(services);
+    } else {
+      setFilteredServices(services.filter(service => service.category === activeCategory));
     }
+  }, [activeCategory, services]);
+  
+  const handleCategoryChange = (category: string) => {
+    setActiveCategory(category);
   };
   
-  const handleDeactivateService = async (serviceId: string) => {
-    try {
-      if (!currentUser?.id) {
-        toast.error('You must be logged in to deactivate a service');
-        return;
-      }
-      
-      // Get current selected services
-      const { data: clientData, error: clientError } = await supabase
-        .from('clients')
-        .select('selected_services')
-        .eq('id', currentUser.id)
-        .single();
-      
-      if (clientError) throw clientError;
-      
-      const currentServices = clientData?.selected_services || [];
-      const updatedServices = currentServices.filter(id => id !== serviceId);
-      
-      // Update the client's selected services
-      const { error: updateError } = await supabase
-        .from('clients')
-        .update({ selected_services: updatedServices })
-        .eq('id', currentUser.id);
-      
-      if (updateError) throw updateError;
-      
-      toast.success('Service deactivated successfully');
-      fetchServices();
-    } catch (error: any) {
-      console.error('Error deactivating service:', error);
-      toast.error(error.message || 'Failed to deactivate service');
-    }
-  };
-  
-  const renderContent = () => {
-    if (isLoading) {
-      return (
-        <div className="flex flex-col items-center justify-center py-12">
-          <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-          <p className="text-lg">Loading services...</p>
-        </div>
-      );
+  const handleServiceToggle = async (serviceId: string) => {
+    if (!currentUser?.id) {
+      toast.error('Please log in to select services');
+      return;
     }
     
+    setIsUpdating(true);
+    try {
+      // Toggle service selection
+      let updatedSelectedServices: string[];
+      
+      if (selectedServices.includes(serviceId)) {
+        updatedSelectedServices = selectedServices.filter(id => id !== serviceId);
+      } else {
+        updatedSelectedServices = [...selectedServices, serviceId];
+      }
+      
+      // Update in Supabase
+      const { error } = await supabase
+        .from('clients')
+        .update({ selected_services: updatedSelectedServices })
+        .eq('id', currentUser.id);
+      
+      if (error) throw error;
+      
+      // Update local state
+      setSelectedServices(updatedSelectedServices);
+      refreshUserData();
+      
+      toast.success(
+        selectedServices.includes(serviceId) 
+          ? 'Service removed from your selection' 
+          : 'Service added to your selection'
+      );
+    } catch (error) {
+      console.error('Error updating services:', error);
+      toast.error('Failed to update service selection');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+  
+  const getSelectedServicesData = () => {
+    return services.filter(service => selectedServices.includes(service.id));
+  };
+  
+  if (isLoading) {
     return (
-      <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="my-services">My Services</TabsTrigger>
-          <TabsTrigger value="available-services">Available Services</TabsTrigger>
+      <div className="flex items-center justify-center h-[60vh]">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+  
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Services</h1>
+        <p className="text-muted-foreground">
+          Browse and manage your service subscriptions
+        </p>
+      </div>
+      
+      <Tabs defaultValue="available" value={currentTab} onValueChange={(value) => setCurrentTab(value as any)}>
+        <TabsList>
+          <TabsTrigger value="available">Available Services</TabsTrigger>
+          <TabsTrigger value="selected">
+            My Services {selectedServices.length > 0 && `(${selectedServices.length})`}
+          </TabsTrigger>
         </TabsList>
         
-        <TabsContent value="my-services" className="py-6">
-          {myServices.length > 0 ? (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {myServices.map((service) => (
-                <ServiceCard 
-                  key={service.id} 
-                  service={service}
-                  onDeactivate={() => handleDeactivateService(service.id)}
-                />
-              ))}
-            </div>
-          ) : (
+        <TabsContent value="available" className="space-y-6">
+          {/* Category selection */}
+          <div className="flex flex-wrap gap-2">
+            <Badge 
+              variant={activeCategory === 'all' ? 'default' : 'outline'}
+              className="cursor-pointer hover:bg-secondary"
+              onClick={() => handleCategoryChange('all')}
+            >
+              All
+            </Badge>
+            {categories.map(category => (
+              <Badge
+                key={category}
+                variant={activeCategory === category ? 'default' : 'outline'}
+                className="cursor-pointer hover:bg-secondary"
+                onClick={() => handleCategoryChange(category)}
+              >
+                {category}
+              </Badge>
+            ))}
+          </div>
+          
+          {/* Services listing */}
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {filteredServices.map(service => (
+              <ServiceSelectionCard
+                key={service.id}
+                service={service}
+                isSelected={selectedServices.includes(service.id)}
+                onToggle={() => handleServiceToggle(service.id)}
+                isUpdating={isUpdating}
+              />
+            ))}
+          </div>
+          
+          {filteredServices.length === 0 && (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
-                <Package className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-xl font-medium mb-2">No Active Services</h3>
-                <p className="text-muted-foreground text-center max-w-md mb-6">
-                  You haven't activated any services yet. Check out our available services to get started.
+                <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-xl font-medium mb-2">No Services Found</h3>
+                <p className="text-muted-foreground text-center max-w-md">
+                  There are no services available in this category. Please check back later.
                 </p>
-                <button 
-                  onClick={() => setActiveTab('available-services')}
-                  className="flex items-center justify-center text-primary"
-                >
-                  Browse Available Services
-                </button>
               </CardContent>
             </Card>
           )}
         </TabsContent>
         
-        <TabsContent value="available-services" className="py-6">
-          {availableServices.length > 0 ? (
+        <TabsContent value="selected" className="space-y-6">
+          {selectedServices.length > 0 ? (
             <>
-              <Alert className="mb-6">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Payment Required</AlertTitle>
-                <AlertDescription>
-                  Activating a service will require payment. You will be charged according to the pricing shown.
-                </AlertDescription>
-              </Alert>
-              
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {availableServices.map((service) => (
-                  <ServiceSelectionCard 
-                    key={service.id} 
-                    service={service} 
-                    isActive={false}
-                    onActivate={() => handleActivateService(service.id)}
-                    isLoading={isActivating === service.id}
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {getSelectedServicesData().map(service => (
+                  <ServiceCard
+                    key={service.id}
+                    service={service}
+                    onRemove={() => handleServiceToggle(service.id)}
+                    isUpdating={isUpdating}
                   />
                 ))}
+              </div>
+              
+              <div className="flex justify-end gap-4">
+                <Button onClick={() => navigate('/dashboard/billing')}>
+                  Manage Billing
+                </Button>
               </div>
             </>
           ) : (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
-                <Check className="h-12 w-12 text-green-500 mb-4" />
-                <h3 className="text-xl font-medium mb-2">All Services Activated</h3>
-                <p className="text-muted-foreground text-center max-w-md">
-                  You've activated all available services. Check back later for new offerings.
+                <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-xl font-medium mb-2">No Services Selected</h3>
+                <p className="text-muted-foreground text-center max-w-md mb-6">
+                  You haven't selected any services yet. Browse our available services and add ones that meet your needs.
                 </p>
+                <Button onClick={() => setCurrentTab('available')}>
+                  Browse Services
+                </Button>
               </CardContent>
             </Card>
           )}
         </TabsContent>
       </Tabs>
-    );
-  };
-  
-  return (
-    <div className="container py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight">Services</h1>
-        <p className="text-muted-foreground">
-          Manage your active services and explore new offerings
-        </p>
-      </div>
-      
-      {renderContent()}
     </div>
   );
 };
