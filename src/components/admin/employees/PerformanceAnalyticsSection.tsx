@@ -1,275 +1,341 @@
-
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { Button } from '@/components/ui/button';
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { BarChart3, Activity, PieChart as PieChartIcon, CalendarRange, Download } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { BarChart, Bar, PieChart, Pie, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { supabase } from '@/integrations/supabase/client';
+import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+
+interface EmployeePerformance {
+  name: string;
+  completedTasks: number;
+  ongoingTasks: number;
+  overdueTasks: number;
+  totalTasks: number;
+  performance: number;
+}
+
+interface DepartmentPerformance {
+  department: string;
+  completedTasks: number;
+  totalEmployees: number;
+  avgPerformance: number;
+}
 
 const PerformanceAnalyticsSection: React.FC = () => {
-  // Sample data for charts
-  const employeePerformanceData = {
-    labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-    datasets: [
-      {
-        label: 'Tasks Completed',
-        data: [65, 59, 80, 81, 56, 55],
-        backgroundColor: 'rgba(99, 102, 241, 0.5)',
-        borderColor: 'rgb(99, 102, 241)',
-      },
-      {
-        label: 'On-time Completion Rate',
-        data: [28, 48, 40, 19, 86, 27],
-        backgroundColor: 'rgba(34, 197, 94, 0.5)',
-        borderColor: 'rgb(34, 197, 94)',
-      },
-    ],
+  const [timeRange, setTimeRange] = useState('month');
+  const [isLoading, setIsLoading] = useState(true);
+  const [employeePerformance, setEmployeePerformance] = useState<EmployeePerformance[]>([]);
+  const [departmentPerformance, setDepartmentPerformance] = useState<DepartmentPerformance[]>([]);
+  
+  const fetchPerformanceData = async () => {
+    setIsLoading(true);
+    try {
+      // Get date range based on selected time period
+      const today = new Date();
+      let startDate = new Date();
+      
+      if (timeRange === 'week') {
+        startDate.setDate(today.getDate() - 7);
+      } else if (timeRange === 'month') {
+        startDate.setMonth(today.getMonth() - 1);
+      } else if (timeRange === 'quarter') {
+        startDate.setMonth(today.getMonth() - 3);
+      } else if (timeRange === 'year') {
+        startDate.setFullYear(today.getFullYear() - 1);
+      }
+      
+      const startDateIso = startDate.toISOString();
+      
+      // Fetch employees
+      const { data: employees, error: employeesError } = await supabase
+        .from('employees')
+        .select('id, name, department')
+        .eq('status', 'active');
+      
+      if (employeesError) throw employeesError;
+      
+      // Fetch tasks and calculate performance by employee
+      const employeeData: EmployeePerformance[] = [];
+      
+      for (const employee of employees || []) {
+        // Get all tasks assigned to this employee within the time range
+        const { data: tasks, error: tasksError } = await supabase
+          .from('tasks')
+          .select('*')
+          .eq('assigned_to', employee.id)
+          .gte('created_at', startDateIso);
+        
+        if (tasksError) throw tasksError;
+        
+        // Calculate metrics
+        const totalTasks = tasks?.length || 0;
+        const completedTasks = tasks?.filter(t => t.status === 'done').length || 0;
+        const ongoingTasks = tasks?.filter(t => ['todo', 'in-progress', 'review'].includes(t.status)).length || 0;
+        
+        // Calculate overdue tasks
+        const overdueTasks = tasks?.filter(task => {
+          if (task.status === 'done' || !task.due_date) return false;
+          const dueDate = new Date(task.due_date);
+          return dueDate < today;
+        }).length || 0;
+        
+        // Calculate performance score (completed tasks / total tasks * 100)
+        // If no tasks, set to 0
+        const performance = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+        
+        employeeData.push({
+          name: employee.name,
+          completedTasks,
+          ongoingTasks,
+          overdueTasks,
+          totalTasks,
+          performance: Math.round(performance)
+        });
+      }
+      
+      // Sort by performance (highest first)
+      employeeData.sort((a, b) => b.performance - a.performance);
+      
+      // Only keep top 10 employees
+      setEmployeePerformance(employeeData.slice(0, 10));
+      
+      // Calculate department performance
+      const departmentMap = new Map<string, { 
+        completedTasks: number, 
+        totalTasks: number, 
+        employees: Set<string>
+      }>();
+      
+      // Initialize with employees from each department
+      for (const employee of employees || []) {
+        if (!departmentMap.has(employee.department)) {
+          departmentMap.set(employee.department, {
+            completedTasks: 0,
+            totalTasks: 0,
+            employees: new Set([employee.id])
+          });
+        } else {
+          departmentMap.get(employee.department)?.employees.add(employee.id);
+        }
+      }
+      
+      // Get all tasks within the time range
+      const { data: allTasks, error: allTasksError } = await supabase
+        .from('tasks')
+        .select('status, assigned_to')
+        .gte('created_at', startDateIso);
+      
+      if (allTasksError) throw allTasksError;
+      
+      // For each task, find employee and increment department counts
+      for (const task of allTasks || []) {
+        const employeeInfo = employees?.find(e => e.id === task.assigned_to);
+        if (employeeInfo) {
+          const dept = departmentMap.get(employeeInfo.department);
+          if (dept) {
+            dept.totalTasks++;
+            if (task.status === 'done') {
+              dept.completedTasks++;
+            }
+          }
+        }
+      }
+      
+      // Convert map to array
+      const deptData: DepartmentPerformance[] = [];
+      
+      departmentMap.forEach((value, department) => {
+        const avgPerformance = value.totalTasks > 0 
+          ? (value.completedTasks / value.totalTasks) * 100 
+          : 0;
+        
+        deptData.push({
+          department,
+          completedTasks: value.completedTasks,
+          totalEmployees: value.employees.size,
+          avgPerformance: Math.round(avgPerformance)
+        });
+      });
+      
+      // Sort by average performance (highest first)
+      deptData.sort((a, b) => b.avgPerformance - a.avgPerformance);
+      
+      setDepartmentPerformance(deptData);
+    } catch (error) {
+      console.error('Error fetching performance data:', error);
+      toast.error('Failed to load performance analytics');
+    } finally {
+      setIsLoading(false);
+    }
   };
-
-  // Convert chart data to Recharts format
-  const rechartsEmployeePerformanceData = employeePerformanceData.labels.map((month, index) => ({
-    name: month,
-    'Tasks Completed': employeePerformanceData.datasets[0].data[index],
-    'On-time Completion Rate': employeePerformanceData.datasets[1].data[index],
-  }));
-
-  const departmentComparisonData = [
-    { name: 'Marketing', value: 85 },
-    { name: 'Sales', value: 78 },
-    { name: 'Development', value: 92 },
-    { name: 'Support', value: 81 },
-    { name: 'Content', value: 76 },
-  ];
-
-  const productivityTrendsData = [
-    { name: 'Jan', productivity: 22 },
-    { name: 'Feb', productivity: 19 },
-    { name: 'Mar', productivity: 27 },
-    { name: 'Apr', productivity: 23 },
-    { name: 'May', productivity: 22 },
-    { name: 'Jun', productivity: 24 },
-    { name: 'Jul', productivity: 17 },
-    { name: 'Aug', productivity: 25 },
-    { name: 'Sep', productivity: 23 },
-    { name: 'Oct', productivity: 24 },
-    { name: 'Nov', productivity: 20 },
-    { name: 'Dec', productivity: 19 },
-  ];
-
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
-
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between gap-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <Select defaultValue="individual">
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="View type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="individual">Individual Performance</SelectItem>
-              <SelectItem value="team">Team Performance</SelectItem>
-              <SelectItem value="department">Department Performance</SelectItem>
-            </SelectContent>
-          </Select>
-          
-          <Select defaultValue="last6months">
-            <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="Time period" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="last30days">Last 30 Days</SelectItem>
-              <SelectItem value="last3months">Last 3 Months</SelectItem>
-              <SelectItem value="last6months">Last 6 Months</SelectItem>
-              <SelectItem value="lastyear">Last Year</SelectItem>
-              <SelectItem value="custom">Custom Range</SelectItem>
-            </SelectContent>
-          </Select>
+  
+  useEffect(() => {
+    fetchPerformanceData();
+  }, [timeRange]);
+  
+  const getPerformanceColor = (performance: number) => {
+    if (performance >= 75) return '#10b981'; // Green for high performance
+    if (performance >= 50) return '#f59e0b'; // Amber for medium performance
+    return '#ef4444'; // Red for low performance
+  };
+  
+  const renderChart = () => {
+    if (isLoading) {
+      return (
+        <div className="flex justify-center items-center h-[300px]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-        
-        <Button variant="outline">
-          <Download className="h-4 w-4 mr-2" />
-          Export Report
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Performance Summary</CardTitle>
-            <CardDescription>Overall employee metrics</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Productivity Score</span>
-                <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
-                  87/100 (Excellent)
-                </Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Tasks Completion Rate</span>
-                <Badge variant="outline" className="bg-blue-100 text-blue-800 border-blue-300">
-                  92%
-                </Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Meeting Attendance</span>
-                <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
-                  98%
-                </Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">On-time Deliveries</span>
-                <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">
-                  78%
-                </Badge>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Client Satisfaction</span>
-                <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300">
-                  4.7/5.0
-                </Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="col-span-1 md:col-span-2">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Performance Metrics</CardTitle>
-            <CardDescription>Task completion and on-time rates</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[200px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={rechartsEmployeePerformanceData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="Tasks Completed" fill="rgba(99, 102, 241, 0.8)" />
-                  <Bar dataKey="On-time Completion Rate" fill="rgba(34, 197, 94, 0.8)" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-      
-      <Tabs defaultValue="productivity">
-        <TabsList className="grid grid-cols-3 mb-4">
-          <TabsTrigger value="productivity" className="flex items-center gap-2">
-            <Activity className="h-4 w-4" />
-            <span className="hidden sm:inline">Productivity</span>
-          </TabsTrigger>
-          <TabsTrigger value="departments" className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" />
-            <span className="hidden sm:inline">Departments</span>
-          </TabsTrigger>
-          <TabsTrigger value="trends" className="flex items-center gap-2">
-            <PieChartIcon className="h-4 w-4" />
-            <span className="hidden sm:inline">Trends</span>
-          </TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="productivity">
-          <Card>
-            <CardHeader>
-              <CardTitle>Productivity Breakdown</CardTitle>
-              <CardDescription>Analyzing task completion efficiency</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[350px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={productivityTrendsData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Line type="monotone" dataKey="productivity" name="Team Productivity" stroke="rgb(99, 102, 241)" strokeWidth={2} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="departments">
-          <Card>
-            <CardHeader>
-              <CardTitle>Department Comparison</CardTitle>
-              <CardDescription>Average productivity scores by department</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[350px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={departmentComparisonData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="value" name="Average Productivity Score" fill="#8884d8">
-                      {departmentComparisonData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="trends">
-          <Card>
-            <CardHeader>
-              <CardTitle>Performance Trends</CardTitle>
-              <CardDescription>Skill distribution and improvements</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[350px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={departmentComparisonData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                      outerRadius={120}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {departmentComparisonData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-      
-      <div className="text-center mt-8 text-muted-foreground text-sm">
-        <p>Performance data is updated daily. Last updated: November 10, 2023</p>
-      </div>
-    </div>
+      );
+    }
+    
+    if (employeePerformance.length === 0) {
+      return (
+        <div className="flex justify-center items-center h-[300px] text-muted-foreground">
+          No performance data available
+        </div>
+      );
+    }
+    
+    return (
+      <ResponsiveContainer width="100%" height={400}>
+        <BarChart
+          data={employeePerformance}
+          margin={{
+            top: 5,
+            right: 30,
+            left: 20,
+            bottom: 60,
+          }}
+        >
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis 
+            dataKey="name" 
+            tick={{ fill: 'currentColor', fontSize: 12 }}
+            angle={-45}
+            textAnchor="end"
+            height={70}
+          />
+          <YAxis tick={{ fill: 'currentColor' }} />
+          <Tooltip 
+            formatter={(value, name) => {
+              if (name === 'performance') return [`${value}%`, 'Performance'];
+              return [value, name];
+            }}
+            contentStyle={{ backgroundColor: 'var(--background)', borderRadius: '4px', border: '1px solid var(--border)' }}
+          />
+          <Legend />
+          <Bar dataKey="completedTasks" name="Completed Tasks" fill="#4ade80" />
+          <Bar dataKey="ongoingTasks" name="Ongoing Tasks" fill="#60a5fa" />
+          <Bar dataKey="overdueTasks" name="Overdue Tasks" fill="#f87171" />
+        </BarChart>
+      </ResponsiveContainer>
+    );
+  };
+  
+  const renderDepartmentChart = () => {
+    if (isLoading) {
+      return (
+        <div className="flex justify-center items-center h-[300px]">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      );
+    }
+    
+    if (departmentPerformance.length === 0) {
+      return (
+        <div className="flex justify-center items-center h-[300px] text-muted-foreground">
+          No department data available
+        </div>
+      );
+    }
+    
+    return (
+      <ResponsiveContainer width="100%" height={300}>
+        <LineChart
+          data={departmentPerformance}
+          margin={{
+            top: 5,
+            right: 30,
+            left: 20,
+            bottom: 5,
+          }}
+        >
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="department" tick={{ fill: 'currentColor' }} />
+          <YAxis tick={{ fill: 'currentColor' }} />
+          <Tooltip 
+            formatter={(value, name) => {
+              if (name === 'avgPerformance') return [`${value}%`, 'Avg. Performance'];
+              if (name === 'totalEmployees') return [value, 'Team Size'];
+              return [value, name];
+            }}
+            contentStyle={{ backgroundColor: 'var(--background)', borderRadius: '4px', border: '1px solid var(--border)' }}
+          />
+          <Legend />
+          <Line type="monotone" dataKey="avgPerformance" name="Avg. Performance" stroke="#8884d8" activeDot={{ r: 8 }} />
+          <Line type="monotone" dataKey="completedTasks" name="Completed Tasks" stroke="#4ade80" />
+          <Line type="monotone" dataKey="totalEmployees" name="Team Size" stroke="#f59e0b" />
+        </LineChart>
+      </ResponsiveContainer>
+    );
+  };
+  
+  return (
+    <Card className="col-span-full">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <div>
+          <CardTitle className="text-xl font-bold">Performance Analytics</CardTitle>
+          <CardDescription>
+            Team and individual performance metrics
+          </CardDescription>
+        </div>
+        <Select value={timeRange} onValueChange={setTimeRange}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Select time range" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="week">Last Week</SelectItem>
+            <SelectItem value="month">Last Month</SelectItem>
+            <SelectItem value="quarter">Last Quarter</SelectItem>
+            <SelectItem value="year">Last Year</SelectItem>
+          </SelectContent>
+        </Select>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-8">
+          <div>
+            <h3 className="text-lg font-medium mb-4">Employee Performance</h3>
+            {renderChart()}
+          </div>
+          
+          <div>
+            <h3 className="text-lg font-medium mb-4">Department Performance</h3>
+            {renderDepartmentChart()}
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+            {departmentPerformance.slice(0, 3).map((dept) => (
+              <Card key={dept.department}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">{dept.department}</CardTitle>
+                  <CardDescription>{dept.totalEmployees} team members</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold" style={{ color: getPerformanceColor(dept.avgPerformance) }}>
+                    {dept.avgPerformance}%
+                  </div>
+                  <p className="text-sm text-muted-foreground">Performance Score</p>
+                  <div className="mt-2 text-sm">
+                    {dept.completedTasks} completed tasks
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 
