@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -36,97 +36,17 @@ import {
   Key,
   AlertCircle,
   Clock,
-  ClipboardList
+  ClipboardList,
+  UserPlus,
+  Download,
+  Loader2
 } from 'lucide-react';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
-
-// Sample employee data
-const employees = [
-  {
-    id: 1,
-    name: 'Alexandra Thompson',
-    email: 'alex@savannahprime.com',
-    role: 'Department Manager',
-    department: 'Marketing',
-    status: 'active',
-    joinDate: '2022-03-15',
-    lastActive: '2023-11-10T14:30:00Z',
-    permissions: ['view_clients', 'send_comms', 'manage_team_tasks'],
-    profileImage: 'https://ui-avatars.com/api/?name=Alexandra+Thompson&background=6366f1&color=fff'
-  },
-  {
-    id: 2,
-    name: 'Michael Rodriguez',
-    email: 'michael@savannahprime.com',
-    role: 'Team Lead',
-    department: 'Development',
-    status: 'active',
-    joinDate: '2022-05-22',
-    lastActive: '2023-11-09T16:45:00Z',
-    permissions: ['edit_services', 'manage_team_tasks', 'dev_access'],
-    profileImage: 'https://ui-avatars.com/api/?name=Michael+Rodriguez&background=6366f1&color=fff'
-  },
-  {
-    id: 3,
-    name: 'Sarah Johnson',
-    email: 'sarah@savannahprime.com',
-    role: 'Content Manager',
-    department: 'Content',
-    status: 'active',
-    joinDate: '2022-06-10',
-    lastActive: '2023-11-10T11:20:00Z',
-    permissions: ['send_comms', 'manage_team_tasks', 'content_edit'],
-    profileImage: 'https://ui-avatars.com/api/?name=Sarah+Johnson&background=6366f1&color=fff'
-  },
-  {
-    id: 4,
-    name: 'David Chen',
-    email: 'david@savannahprime.com',
-    role: 'Staff Member',
-    department: 'Support',
-    status: 'inactive',
-    joinDate: '2022-08-05',
-    lastActive: '2023-10-28T09:15:00Z',
-    permissions: ['view_clients', 'send_comms'],
-    profileImage: 'https://ui-avatars.com/api/?name=David+Chen&background=6366f1&color=fff'
-  },
-  {
-    id: 5,
-    name: 'Emily Wilson',
-    email: 'emily@savannahprime.com',
-    role: 'Intern',
-    department: 'Sales',
-    status: 'active',
-    joinDate: '2023-01-15',
-    lastActive: '2023-11-10T13:40:00Z',
-    permissions: ['view_clients'],
-    profileImage: 'https://ui-avatars.com/api/?name=Emily+Wilson&background=6366f1&color=fff'
-  },
-  {
-    id: 6,
-    name: 'James Taylor',
-    email: 'james@savannahprime.com',
-    role: 'Department Manager',
-    department: 'Sales',
-    status: 'active',
-    joinDate: '2022-02-18',
-    lastActive: '2023-11-09T15:30:00Z',
-    permissions: ['view_clients', 'send_comms', 'manage_team_tasks', 'sales_data'],
-    profileImage: 'https://ui-avatars.com/api/?name=James+Taylor&background=6366f1&color=fff'
-  },
-  {
-    id: 7,
-    name: 'Olivia Garcia',
-    email: 'olivia@savannahprime.com',
-    role: 'Staff Member',
-    department: 'Marketing',
-    status: 'active',
-    joinDate: '2022-09-12',
-    lastActive: '2023-11-08T10:50:00Z',
-    permissions: ['view_clients', 'send_comms'],
-    profileImage: 'https://ui-avatars.com/api/?name=Olivia+Garcia&background=6366f1&color=fff'
-  }
-];
+import { useQuery } from '@tanstack/react-query';
+import { fetchEmployees, updateEmployeeStatus } from '@/services/employeeService';
+import { Employee } from '@/lib/types';
+import { toast } from 'sonner';
+import AddEmployeeForm from './AddEmployeeForm';
 
 const roleColors: Record<string, string> = {
   'Super Admin': 'bg-purple-100 text-purple-800 border-purple-300',
@@ -147,7 +67,19 @@ const EmployeeDirectorySection: React.FC = () => {
   const [selectedDepartment, setSelectedDepartment] = useState('all');
   const [selectedRole, setSelectedRole] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
+  const [addEmployeeOpen, setAddEmployeeOpen] = useState(false);
   const itemsPerPage = 5;
+  
+  // Fetch employees using React Query
+  const { data: employees = [], isLoading, isError, refetch } = useQuery({
+    queryKey: ['employees'],
+    queryFn: fetchEmployees
+  });
+  
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedDepartment, selectedRole]);
   
   // Filter employees based on search and filters
   const filteredEmployees = employees.filter(employee => {
@@ -173,12 +105,14 @@ const EmployeeDirectorySection: React.FC = () => {
   
   // Format date to readable format
   const formatDate = (dateString: string) => {
+    if (!dateString) return 'N/A';
     const options: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'short', day: 'numeric' };
     return new Date(dateString).toLocaleDateString(undefined, options);
   };
   
   // Format time from ISO to relative time
   const formatLastActive = (isoDate: string) => {
+    if (!isoDate) return 'N/A';
     const date = new Date(isoDate);
     const now = new Date();
     const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
@@ -191,6 +125,52 @@ const EmployeeDirectorySection: React.FC = () => {
     }
   };
   
+  // Handle employee status change
+  const handleStatusChange = async (employeeId: string, newStatus: 'active' | 'inactive' | 'suspended') => {
+    try {
+      await updateEmployeeStatus(employeeId, newStatus);
+      toast.success(`Employee status updated to ${newStatus}`);
+      refetch();
+    } catch (error) {
+      toast.error('Failed to update employee status');
+      console.error('Error updating employee status:', error);
+    }
+  };
+  
+  // Export employees to CSV
+  const exportToCSV = () => {
+    // Only export filtered employees
+    const employeesToExport = filteredEmployees;
+    
+    // Define the CSV headers
+    const headers = ['Name', 'Email', 'Role', 'Department', 'Status', 'Join Date', 'Last Active'];
+    
+    // Convert the data to CSV format
+    const csvData = employeesToExport.map(employee => [
+      employee.name,
+      employee.email,
+      employee.role,
+      employee.department,
+      employee.status,
+      formatDate(employee.joinDate),
+      formatLastActive(employee.lastActive)
+    ]);
+    
+    // Combine headers and data
+    const csv = [headers, ...csvData].map(row => row.join(',')).join('\n');
+    
+    // Create a Blob and download link
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `employees_export_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row justify-between gap-4">
@@ -263,6 +243,24 @@ const EmployeeDirectorySection: React.FC = () => {
         </div>
         
         <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={exportToCSV}
+            disabled={filteredEmployees.length === 0}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
+          
+          <Button 
+            size="sm"
+            onClick={() => setAddEmployeeOpen(true)}
+          >
+            <UserPlus className="h-4 w-4 mr-2" />
+            Add Employee
+          </Button>
+          
           <Badge variant="outline" className="px-3 py-1">
             Total: {filteredEmployees.length} employees
           </Badge>
@@ -283,14 +281,29 @@ const EmployeeDirectorySection: React.FC = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {currentEmployees.length > 0 ? (
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-8">
+                  <div className="flex flex-col items-center justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
+                    <p className="text-muted-foreground">Loading employees...</p>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : isError ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-8 text-red-500">
+                  Error loading employees. Please try again.
+                </TableCell>
+              </TableRow>
+            ) : currentEmployees.length > 0 ? (
               currentEmployees.map((employee) => (
                 <TableRow key={employee.id}>
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <div className="h-9 w-9 rounded-full overflow-hidden">
                         <img 
-                          src={employee.profileImage} 
+                          src={employee.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(employee.name)}&background=6366f1&color=fff`} 
                           alt={employee.name} 
                           className="h-full w-full object-cover"
                         />
@@ -345,14 +358,40 @@ const EmployeeDirectorySection: React.FC = () => {
                           Assign Tasks
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-amber-600">
-                          <AlertCircle className="mr-2 h-4 w-4" />
-                          Send Warning
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="text-red-600">
-                          <Clock className="mr-2 h-4 w-4" />
-                          Set Inactive
-                        </DropdownMenuItem>
+                        {employee.status === 'active' ? (
+                          <DropdownMenuItem 
+                            className="text-amber-600"
+                            onClick={() => handleStatusChange(employee.id, 'inactive')}
+                          >
+                            <Clock className="mr-2 h-4 w-4" />
+                            Set Inactive
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem 
+                            className="text-green-600"
+                            onClick={() => handleStatusChange(employee.id, 'active')}
+                          >
+                            <Clock className="mr-2 h-4 w-4" />
+                            Set Active
+                          </DropdownMenuItem>
+                        )}
+                        {employee.status !== 'suspended' ? (
+                          <DropdownMenuItem 
+                            className="text-red-600"
+                            onClick={() => handleStatusChange(employee.id, 'suspended')}
+                          >
+                            <AlertCircle className="mr-2 h-4 w-4" />
+                            Suspend Employee
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem 
+                            className="text-green-600"
+                            onClick={() => handleStatusChange(employee.id, 'active')}
+                          >
+                            <AlertCircle className="mr-2 h-4 w-4" />
+                            Remove Suspension
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>
@@ -369,48 +408,56 @@ const EmployeeDirectorySection: React.FC = () => {
         </Table>
       </div>
       
-      <div className="mt-4">
-        <Pagination>
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious 
-                href="#" 
-                onClick={(e) => {
-                  e.preventDefault();
-                  setCurrentPage(prev => Math.max(1, prev - 1));
-                }}
-              />
-            </PaginationItem>
-            
-            {Array.from({ length: Math.ceil(filteredEmployees.length / itemsPerPage) }).map((_, index) => (
-              <PaginationItem key={index}>
-                <PaginationLink 
+      {filteredEmployees.length > itemsPerPage && (
+        <div className="mt-4">
+          <Pagination>
+            <PaginationContent>
+              <PaginationItem>
+                <PaginationPrevious 
                   href="#" 
-                  isActive={currentPage === index + 1}
                   onClick={(e) => {
                     e.preventDefault();
-                    setCurrentPage(index + 1);
+                    setCurrentPage(prev => Math.max(1, prev - 1));
                   }}
-                >
-                  {index + 1}
-                </PaginationLink>
+                />
               </PaginationItem>
-            ))}
-            
-            <PaginationItem>
-              <PaginationNext 
-                href="#" 
-                onClick={(e) => {
-                  e.preventDefault();
-                  setCurrentPage(prev => 
-                    Math.min(Math.ceil(filteredEmployees.length / itemsPerPage), prev + 1)
-                  );
-                }}
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
-      </div>
+              
+              {Array.from({ length: Math.ceil(filteredEmployees.length / itemsPerPage) }).map((_, index) => (
+                <PaginationItem key={index}>
+                  <PaginationLink 
+                    href="#" 
+                    isActive={currentPage === index + 1}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setCurrentPage(index + 1);
+                    }}
+                  >
+                    {index + 1}
+                  </PaginationLink>
+                </PaginationItem>
+              ))}
+              
+              <PaginationItem>
+                <PaginationNext 
+                  href="#" 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setCurrentPage(prev => 
+                      Math.min(Math.ceil(filteredEmployees.length / itemsPerPage), prev + 1)
+                    );
+                  }}
+                />
+              </PaginationItem>
+            </PaginationContent>
+          </Pagination>
+        </div>
+      )}
+      
+      <AddEmployeeForm 
+        open={addEmployeeOpen} 
+        onOpenChange={setAddEmployeeOpen} 
+        onSuccess={() => refetch()}
+      />
     </div>
   );
 };

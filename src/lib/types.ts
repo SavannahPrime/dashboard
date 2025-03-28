@@ -44,3 +44,52 @@ export interface InvoiceItem {
   unitPrice: number;
   total: number;
 }
+
+export interface Employee {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  department: string;
+  status: 'active' | 'inactive' | 'suspended';
+  joinDate: string;
+  lastActive: string;
+  permissions: string[];
+  profileImage?: string;
+  performance?: EmployeePerformance;
+}
+
+export interface EmployeePerformance {
+  productivityScore: number;
+  tasksCompletionRate: number;
+  meetingAttendance: number;
+  onTimeDeliveries: number;
+  clientSatisfaction: number;
+}
+
+export interface Department {
+  id: string;
+  name: string;
+  description?: string;
+  managerId?: string;
+  employeeCount: number;
+  createdAt: string;
+}
+
+export interface Task {
+  id: number;
+  title: string;
+  description: string;
+  status: 'to-do' | 'in-progress' | 'review' | 'done';
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  assignees: {
+    id: number;
+    name: string;
+    image: string;
+  }[];
+  dueDate: string;
+  comments: number;
+  attachments: number;
+  department: string;
+  created: string;
+}

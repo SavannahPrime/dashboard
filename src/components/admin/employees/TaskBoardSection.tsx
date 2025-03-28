@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Card, 
   CardContent, 
@@ -37,8 +37,15 @@ import {
   Edit,
   Trash,
   MessageSquare,
-  Calendar
+  Calendar,
+  Download,
+  Loader2
 } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { fetchTasks, updateTaskStatus } from '@/services/taskService';
+import { Task } from '@/lib/types';
+import { toast } from 'sonner';
+import AddTaskForm from './AddTaskForm';
 
 // Task priority colors
 const priorityColors = {
@@ -47,117 +54,6 @@ const priorityColors = {
   high: 'bg-orange-100 text-orange-800 border-orange-300',
   critical: 'bg-red-100 text-red-800 border-red-300'
 };
-
-// Sample tasks
-const sampleTasks = [
-  {
-    id: 1,
-    title: 'Update SEO packages',
-    description: 'Revise the pricing and features for all SEO service packages',
-    status: 'to-do',
-    priority: 'high',
-    assignees: [
-      { id: 1, name: 'James Taylor', image: 'https://ui-avatars.com/api/?name=James+Taylor&background=6366f1&color=fff' },
-      { id: 7, name: 'Olivia Garcia', image: 'https://ui-avatars.com/api/?name=Olivia+Garcia&background=6366f1&color=fff' }
-    ],
-    dueDate: '2023-11-15',
-    comments: 2,
-    attachments: 1,
-    department: 'Marketing',
-    created: '2023-11-01'
-  },
-  {
-    id: 2,
-    title: 'Client onboarding automation',
-    description: 'Create email sequence for new client onboarding process',
-    status: 'in-progress',
-    priority: 'medium',
-    assignees: [
-      { id: 3, name: 'Sarah Johnson', image: 'https://ui-avatars.com/api/?name=Sarah+Johnson&background=6366f1&color=fff' }
-    ],
-    dueDate: '2023-11-18',
-    comments: 5,
-    attachments: 3,
-    department: 'Content',
-    created: '2023-11-03'
-  },
-  {
-    id: 3,
-    title: 'Fix newsletter signup form',
-    description: 'Debug and fix the newsletter signup form on the website',
-    status: 'in-progress',
-    priority: 'critical',
-    assignees: [
-      { id: 2, name: 'Michael Rodriguez', image: 'https://ui-avatars.com/api/?name=Michael+Rodriguez&background=6366f1&color=fff' }
-    ],
-    dueDate: '2023-11-12',
-    comments: 4,
-    attachments: 1,
-    department: 'Development',
-    created: '2023-11-05'
-  },
-  {
-    id: 4,
-    title: 'Quarterly sales report',
-    description: 'Prepare the Q3 sales performance report with projections',
-    status: 'review',
-    priority: 'high',
-    assignees: [
-      { id: 6, name: 'James Taylor', image: 'https://ui-avatars.com/api/?name=James+Taylor&background=6366f1&color=fff' }
-    ],
-    dueDate: '2023-11-20',
-    comments: 3,
-    attachments: 2,
-    department: 'Sales',
-    created: '2023-11-02'
-  },
-  {
-    id: 5,
-    title: 'Social media content calendar',
-    description: 'Plan next month\'s social media content calendar',
-    status: 'done',
-    priority: 'medium',
-    assignees: [
-      { id: 1, name: 'Alexandra Thompson', image: 'https://ui-avatars.com/api/?name=Alexandra+Thompson&background=6366f1&color=fff' },
-      { id: 7, name: 'Olivia Garcia', image: 'https://ui-avatars.com/api/?name=Olivia+Garcia&background=6366f1&color=fff' }
-    ],
-    dueDate: '2023-11-05',
-    comments: 8,
-    attachments: 4,
-    department: 'Marketing',
-    created: '2023-10-25'
-  },
-  {
-    id: 6,
-    title: 'Client support tickets review',
-    description: 'Review and categorize open support tickets',
-    status: 'to-do',
-    priority: 'low',
-    assignees: [
-      { id: 4, name: 'David Chen', image: 'https://ui-avatars.com/api/?name=David+Chen&background=6366f1&color=fff' }
-    ],
-    dueDate: '2023-11-17',
-    comments: 0,
-    attachments: 0,
-    department: 'Support',
-    created: '2023-11-08'
-  },
-  {
-    id: 7,
-    title: 'New feature development',
-    description: 'Begin development on the new client dashboard features',
-    status: 'to-do',
-    priority: 'high',
-    assignees: [
-      { id: 2, name: 'Michael Rodriguez', image: 'https://ui-avatars.com/api/?name=Michael+Rodriguez&background=6366f1&color=fff' }
-    ],
-    dueDate: '2023-11-30',
-    comments: 1,
-    attachments: 2,
-    department: 'Development',
-    created: '2023-11-09'
-  }
-];
 
 // Task status columns
 const columns = [
@@ -168,10 +64,37 @@ const columns = [
 ];
 
 const TaskBoardSection: React.FC = () => {
-  const [tasks, setTasks] = useState(sampleTasks);
   const [filterDepartment, setFilterDepartment] = useState('all');
   const [filterPriority, setFilterPriority] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [addTaskOpen, setAddTaskOpen] = useState(false);
+  
+  const queryClient = useQueryClient();
+  
+  // Fetch tasks
+  const { 
+    data: tasks = [], 
+    isLoading, 
+    isError, 
+    refetch 
+  } = useQuery({
+    queryKey: ['tasks'],
+    queryFn: fetchTasks,
+  });
+  
+  // Update task status mutation
+  const updateTaskMutation = useMutation({
+    mutationFn: ({ taskId, status }: { taskId: number; status: 'to-do' | 'in-progress' | 'review' | 'done' }) => 
+      updateTaskStatus(taskId, status),
+    onSuccess: () => {
+      toast.success('Task status updated');
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    },
+    onError: (error) => {
+      toast.error('Failed to update task status');
+      console.error('Error updating task status:', error);
+    }
+  });
   
   // Filter tasks based on department, priority and search query
   const filteredTasks = tasks.filter(task => {
@@ -189,16 +112,19 @@ const TaskBoardSection: React.FC = () => {
   const tasksByStatus = columns.reduce((acc, column) => {
     acc[column.id] = filteredTasks.filter(task => task.status === column.id);
     return acc;
-  }, {} as Record<string, typeof tasks>);
+  }, {} as Record<string, Task[]>);
   
   // Format date
   const formatDate = (dateString: string) => {
+    if (!dateString) return 'N/A';
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
   
   // Calculate days left or overdue
   const getDaysRemaining = (dueDate: string) => {
+    if (!dueDate) return 'No due date';
+    
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const due = new Date(dueDate);
@@ -218,11 +144,46 @@ const TaskBoardSection: React.FC = () => {
   
   // Move task to another status
   const moveTask = (taskId: number, newStatus: string) => {
-    setTasks(prevTasks => 
-      prevTasks.map(task => 
-        task.id === taskId ? { ...task, status: newStatus } : task
-      )
-    );
+    updateTaskMutation.mutate({
+      taskId,
+      status: newStatus as 'to-do' | 'in-progress' | 'review' | 'done'
+    });
+  };
+  
+  // Export tasks to CSV
+  const exportToCSV = () => {
+    // Only export filtered tasks
+    const tasksToExport = filteredTasks;
+    
+    // Define the CSV headers
+    const headers = ['ID', 'Title', 'Description', 'Status', 'Priority', 'Due Date', 'Assignees', 'Department', 'Created'];
+    
+    // Convert the data to CSV format
+    const csvData = tasksToExport.map(task => [
+      task.id,
+      task.title,
+      task.description.replace(/,/g, ';'),
+      task.status,
+      task.priority,
+      formatDate(task.dueDate),
+      task.assignees.map(a => a.name).join('; '),
+      task.department,
+      formatDate(task.created)
+    ]);
+    
+    // Combine headers and data
+    const csv = [headers, ...csvData].map(row => row.join(',')).join('\n');
+    
+    // Create a Blob and download link
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `tasks_export_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
   
   return (
@@ -264,119 +225,160 @@ const TaskBoardSection: React.FC = () => {
           </Select>
         </div>
         
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          New Task
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline" 
+            onClick={exportToCSV}
+            disabled={filteredTasks.length === 0}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
+          
+          <Button onClick={() => setAddTaskOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            New Task
+          </Button>
+        </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {columns.map(column => (
-          <div key={column.id} className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium">{column.name}</h3>
-              <Badge variant="outline">
-                {tasksByStatus[column.id]?.length || 0}
-              </Badge>
-            </div>
-            
-            <div className="space-y-3">
-              {tasksByStatus[column.id]?.length > 0 ? (
-                tasksByStatus[column.id].map(task => (
-                  <Card key={task.id} className="shadow-sm">
-                    <CardHeader className="p-3 pb-2">
-                      <div className="flex justify-between items-start">
-                        <Badge 
-                          variant="outline" 
-                          className={priorityColors[task.priority as keyof typeof priorityColors]}
-                        >
-                          {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
-                        </Badge>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem>
-                              <Edit className="mr-2 h-4 w-4" />
-                              Edit Task
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>
-                              <MessageSquare className="mr-2 h-4 w-4" />
-                              Add Comment
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem>
-                              <ArrowRight className="mr-2 h-4 w-4" />
-                              Move to...
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-red-600">
-                              <Trash className="mr-2 h-4 w-4" />
-                              Delete Task
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                      <CardTitle className="text-base mt-2">{task.title}</CardTitle>
-                      <CardDescription className="line-clamp-2 mt-1">
-                        {task.description}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="px-3 py-0">
-                      <div className="flex items-center text-sm text-muted-foreground mb-3">
-                        <Calendar className="h-3.5 w-3.5 mr-1" />
-                        <span>Due {formatDate(task.dueDate)}</span>
-                        <span className="px-1.5">•</span>
-                        <Badge variant="outline" className="text-xs font-normal">
-                          {task.department}
-                        </Badge>
-                      </div>
-                    </CardContent>
-                    <CardFooter className="p-3 pt-0 flex justify-between">
-                      <div className="flex -space-x-2">
-                        {task.assignees.map((assignee, index) => (
-                          <div 
-                            key={index} 
-                            className="h-7 w-7 rounded-full border-2 border-background overflow-hidden"
-                            title={assignee.name}
+      {isLoading ? (
+        <div className="flex items-center justify-center p-8">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mr-2" />
+          <p>Loading tasks...</p>
+        </div>
+      ) : isError ? (
+        <div className="text-center p-8 text-red-500">
+          <AlertCircle className="h-8 w-8 mx-auto mb-2" />
+          <p>Error loading tasks. Please try again.</p>
+          <Button variant="outline" className="mt-4" onClick={() => refetch()}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Retry
+          </Button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {columns.map(column => (
+            <div key={column.id} className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-medium">{column.name}</h3>
+                <Badge variant="outline">
+                  {tasksByStatus[column.id]?.length || 0}
+                </Badge>
+              </div>
+              
+              <div className="space-y-3">
+                {tasksByStatus[column.id]?.length > 0 ? (
+                  tasksByStatus[column.id].map(task => (
+                    <Card key={task.id} className="shadow-sm">
+                      <CardHeader className="p-3 pb-2">
+                        <div className="flex justify-between items-start">
+                          <Badge 
+                            variant="outline" 
+                            className={priorityColors[task.priority as keyof typeof priorityColors]}
                           >
-                            <img 
-                              src={assignee.image} 
-                              alt={assignee.name} 
-                              className="h-full w-full object-cover"
-                            />
-                          </div>
-                        ))}
-                      </div>
-                      <div className="flex items-center gap-3 text-muted-foreground text-sm">
-                        {task.comments > 0 && (
+                            {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+                          </Badge>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit Task
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>
+                                <MessageSquare className="mr-2 h-4 w-4" />
+                                Add Comment
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuLabel>Move to...</DropdownMenuLabel>
+                              {columns.map(col => (
+                                col.id !== task.status && (
+                                  <DropdownMenuItem 
+                                    key={col.id}
+                                    onClick={() => moveTask(task.id, col.id)}
+                                  >
+                                    <ArrowRight className="mr-2 h-4 w-4" />
+                                    {col.name}
+                                  </DropdownMenuItem>
+                                )
+                              ))}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem className="text-red-600">
+                                <Trash className="mr-2 h-4 w-4" />
+                                Delete Task
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                        <CardTitle className="text-base mt-2">{task.title}</CardTitle>
+                        <CardDescription className="line-clamp-2 mt-1">
+                          {task.description}
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="px-3 py-0">
+                        <div className="flex items-center text-sm text-muted-foreground mb-3">
+                          <Calendar className="h-3.5 w-3.5 mr-1" />
+                          <span>Due {formatDate(task.dueDate)}</span>
+                          <span className="px-1.5">•</span>
+                          <Badge variant="outline" className="text-xs font-normal">
+                            {task.department}
+                          </Badge>
+                        </div>
+                      </CardContent>
+                      <CardFooter className="p-3 pt-0 flex justify-between">
+                        <div className="flex -space-x-2">
+                          {task.assignees.map((assignee, index) => (
+                            <div 
+                              key={index} 
+                              className="h-7 w-7 rounded-full border-2 border-background overflow-hidden"
+                              title={assignee.name}
+                            >
+                              <img 
+                                src={assignee.image} 
+                                alt={assignee.name} 
+                                className="h-full w-full object-cover"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex items-center gap-3 text-muted-foreground text-sm">
+                          {task.comments > 0 && (
+                            <span className="flex items-center gap-1">
+                              <MessageSquare className="h-3.5 w-3.5" />
+                              {task.comments}
+                            </span>
+                          )}
                           <span className="flex items-center gap-1">
-                            <MessageSquare className="h-3.5 w-3.5" />
-                            {task.comments}
+                            <Clock className="h-3.5 w-3.5" />
+                            {getDaysRemaining(task.dueDate)}
                           </span>
-                        )}
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3.5 w-3.5" />
-                          {getDaysRemaining(task.dueDate)}
-                        </span>
-                      </div>
-                    </CardFooter>
-                  </Card>
-                ))
-              ) : (
-                <div className="border border-dashed rounded-md p-4 flex items-center justify-center">
-                  <p className="text-muted-foreground text-sm">No tasks</p>
-                </div>
-              )}
+                        </div>
+                      </CardFooter>
+                    </Card>
+                  ))
+                ) : (
+                  <div className="border border-dashed rounded-md p-4 flex items-center justify-center">
+                    <p className="text-muted-foreground text-sm">No tasks</p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
+      
+      <AddTaskForm 
+        open={addTaskOpen} 
+        onOpenChange={setAddTaskOpen} 
+        onSuccess={() => refetch()}
+      />
     </div>
   );
 };

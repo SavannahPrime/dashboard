@@ -1,370 +1,279 @@
 
-import React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Layers, Users, User, Plus, Download, Edit, Trash, MoreHorizontal, Loader2 } from 'lucide-react';
+import { fetchDepartments, deleteDepartment } from '@/services/departmentService';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import AddDepartmentForm from './AddDepartmentForm';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { 
-  UsersRound, 
-  User, 
-  ChevronRight, 
-  Plus, 
-  FolderPlus, 
-  Users,
-  Building2, 
-  LayoutGrid,
-  ListTree
-} from 'lucide-react';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from '@/components/ui/dropdown-menu';
 
-// Department structure data
-const departments = [
-  {
-    id: 1,
-    name: 'Marketing',
-    headCount: 12,
-    manager: 'Alexandra Thompson',
-    managerTitle: 'Marketing Director',
-    managerImage: 'https://ui-avatars.com/api/?name=Alexandra+Thompson&background=6366f1&color=fff',
-    teams: [
-      {
-        id: 101,
-        name: 'Digital Marketing',
-        lead: 'Brian Williams',
-        headCount: 5,
-        description: 'Handles SEO, SEM, and digital ad campaigns'
-      },
-      {
-        id: 102,
-        name: 'Content Marketing',
-        lead: 'Olivia Garcia',
-        headCount: 4,
-        description: 'Manages content strategy and creation'
-      },
-      {
-        id: 103,
-        name: 'Brand Marketing',
-        lead: 'Nathan Lee',
-        headCount: 3,
-        description: 'Oversees brand identity and marketing materials'
-      }
-    ]
-  },
-  {
-    id: 2,
-    name: 'Sales',
-    headCount: 15,
-    manager: 'James Taylor',
-    managerTitle: 'Sales Director',
-    managerImage: 'https://ui-avatars.com/api/?name=James+Taylor&background=6366f1&color=fff',
-    teams: [
-      {
-        id: 201,
-        name: 'New Business',
-        lead: 'Rebecca Martinez',
-        headCount: 6,
-        description: 'Focuses on acquiring new clients and accounts'
-      },
-      {
-        id: 202,
-        name: 'Account Management',
-        lead: 'Daniel Robinson',
-        headCount: 5,
-        description: 'Maintains relationships with existing clients'
-      },
-      {
-        id: 203,
-        name: 'Sales Operations',
-        lead: 'Emily Wilson',
-        headCount: 4,
-        description: 'Handles sales data, analyses, and processes'
-      }
-    ]
-  },
-  {
-    id: 3,
-    name: 'Development',
-    headCount: 18,
-    manager: 'Michael Rodriguez',
-    managerTitle: 'CTO',
-    managerImage: 'https://ui-avatars.com/api/?name=Michael+Rodriguez&background=6366f1&color=fff',
-    teams: [
-      {
-        id: 301,
-        name: 'Frontend Development',
-        lead: 'Jessica Chen',
-        headCount: 6,
-        description: 'Creates user interfaces and client-side applications'
-      },
-      {
-        id: 302,
-        name: 'Backend Development',
-        lead: 'Thomas Brown',
-        headCount: 7,
-        description: 'Builds server-side logic and infrastructure'
-      },
-      {
-        id: 303,
-        name: 'QA & Testing',
-        lead: 'Lisa Johnson',
-        headCount: 5,
-        description: 'Ensures quality and stability of products'
-      }
-    ]
-  },
-  {
-    id: 4,
-    name: 'Support',
-    headCount: 10,
-    manager: 'David Chen',
-    managerTitle: 'Customer Success Manager',
-    managerImage: 'https://ui-avatars.com/api/?name=David+Chen&background=6366f1&color=fff',
-    teams: [
-      {
-        id: 401,
-        name: 'Technical Support',
-        lead: 'Robert Wilson',
-        headCount: 6,
-        description: 'Resolves technical issues and client questions'
-      },
-      {
-        id: 402,
-        name: 'Customer Success',
-        lead: 'Amanda Lewis',
-        headCount: 4,
-        description: 'Ensures client satisfaction and retention'
-      }
-    ]
-  },
-  {
-    id: 5,
-    name: 'Content',
-    headCount: 8,
-    manager: 'Sarah Johnson',
-    managerTitle: 'Content Director',
-    managerImage: 'https://ui-avatars.com/api/?name=Sarah+Johnson&background=6366f1&color=fff',
-    teams: [
-      {
-        id: 501,
-        name: 'Content Creation',
-        lead: 'Kevin Zhang',
-        headCount: 5,
-        description: 'Produces written and visual content'
-      },
-      {
-        id: 502,
-        name: 'Content Strategy',
-        lead: 'Maria Gonzalez',
-        headCount: 3,
-        description: 'Plans content approach and distribution'
-      }
-    ]
-  }
-];
+// Department layout component for the main list view
+const DepartmentCard: React.FC<{
+  id: string;
+  name: string;
+  description?: string;
+  employeeCount: number;
+  onEdit: (id: string) => void;
+  onDelete: (id: string) => void;
+}> = ({ id, name, description, employeeCount, onEdit, onDelete }) => {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex justify-between items-start">
+          <div className="flex items-center">
+            <Layers className="h-5 w-5 text-primary mr-2" />
+            <CardTitle className="text-lg">{name}</CardTitle>
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => onEdit(id)}>
+                <Edit className="mr-2 h-4 w-4" />
+                Edit Department
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                className="text-red-600"
+                onClick={() => onDelete(id)}
+              >
+                <Trash className="mr-2 h-4 w-4" />
+                Delete Department
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        {description && (
+          <CardDescription className="mt-1">{description}</CardDescription>
+        )}
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-center text-muted-foreground">
+          <Users className="h-4 w-4 mr-1" />
+          <span>{employeeCount} {employeeCount === 1 ? 'employee' : 'employees'}</span>
+        </div>
+      </CardContent>
+      <CardFooter className="pt-0">
+        <Button variant="outline" size="sm" className="w-full">
+          <User className="h-4 w-4 mr-2" />
+          View Team
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+};
+
+// Confirmation dialog for deleting a department
+const DeleteConfirmationDialog: React.FC<{
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  departmentName: string;
+  onConfirm: () => void;
+  isDeleting: boolean;
+}> = ({ open, onOpenChange, departmentName, onConfirm, isDeleting }) => {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Delete Department</DialogTitle>
+          <DialogDescription>
+            Are you sure you want to delete the department "{departmentName}"? This action cannot be undone.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button 
+            variant="outline" 
+            onClick={() => onOpenChange(false)}
+            disabled={isDeleting}
+          >
+            Cancel
+          </Button>
+          <Button 
+            variant="destructive" 
+            onClick={onConfirm}
+            disabled={isDeleting}
+          >
+            {isDeleting ? 'Deleting...' : 'Delete'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 const DepartmentStructureSection: React.FC = () => {
+  const [addDepartmentOpen, setAddDepartmentOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedDepartment, setSelectedDepartment] = useState<{ id: string; name: string } | null>(null);
+  
+  const queryClient = useQueryClient();
+  
+  // Fetch departments
+  const { 
+    data: departments = [], 
+    isLoading, 
+    isError 
+  } = useQuery({
+    queryKey: ['departments'],
+    queryFn: fetchDepartments,
+  });
+  
+  // Delete department mutation
+  const deleteMutation = useMutation({
+    mutationFn: (departmentId: string) => deleteDepartment(departmentId),
+    onSuccess: () => {
+      toast.success('Department deleted successfully');
+      queryClient.invalidateQueries({ queryKey: ['departments'] });
+      setDeleteDialogOpen(false);
+      setSelectedDepartment(null);
+    },
+    onError: (error) => {
+      toast.error('Failed to delete department');
+      console.error('Error deleting department:', error);
+    }
+  });
+  
+  const handleDeleteClick = (id: string) => {
+    const department = departments.find(dept => dept.id === id);
+    if (department) {
+      setSelectedDepartment({
+        id: department.id,
+        name: department.name
+      });
+      setDeleteDialogOpen(true);
+    }
+  };
+  
+  const handleEditClick = (id: string) => {
+    // This will be implemented when we add the edit department form
+    toast.info('Edit department functionality coming soon');
+  };
+  
+  const confirmDelete = () => {
+    if (selectedDepartment) {
+      deleteMutation.mutate(selectedDepartment.id);
+    }
+  };
+  
+  // Export departments to CSV
+  const exportToCSV = () => {
+    // Define the CSV headers
+    const headers = ['ID', 'Name', 'Description', 'Employee Count', 'Created At'];
+    
+    // Convert the data to CSV format
+    const csvData = departments.map(dept => [
+      dept.id,
+      dept.name,
+      dept.description || 'N/A',
+      dept.employeeCount.toString(),
+      new Date(dept.createdAt).toLocaleDateString()
+    ]);
+    
+    // Combine headers and data
+    const csv = [headers, ...csvData].map(row => row.join(',')).join('\n');
+    
+    // Create a Blob and download link
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `departments_export_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+  
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between gap-4">
-        <h3 className="text-lg font-medium">Organizational Structure</h3>
-        <div className="flex items-center gap-2">
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Employee
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold">Department Structure</h2>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline"
+            onClick={exportToCSV}
+            disabled={departments.length === 0}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
           </Button>
-          <Button variant="outline">
-            <FolderPlus className="h-4 w-4 mr-2" />
-            New Department
+          <Button onClick={() => setAddDepartmentOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Department
           </Button>
         </div>
       </div>
       
-      <Tabs defaultValue="departments" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="departments" className="flex items-center gap-2">
-            <Building2 className="h-4 w-4" />
-            <span>Departments</span>
-          </TabsTrigger>
-          <TabsTrigger value="grid" className="flex items-center gap-2">
-            <LayoutGrid className="h-4 w-4" />
-            <span>Grid View</span>
-          </TabsTrigger>
-          <TabsTrigger value="tree" className="flex items-center gap-2">
-            <ListTree className="h-4 w-4" />
-            <span>Tree View</span>
-          </TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="departments" className="space-y-4">
-          {departments.map((department) => (
-            <Card key={department.id} className="overflow-hidden">
-              <CardHeader className="bg-accent/50 pb-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <UsersRound className="h-6 w-6 text-primary" />
-                    <div>
-                      <CardTitle>{department.name} Department</CardTitle>
-                      <CardDescription>
-                        {department.headCount} employees
-                      </CardDescription>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="text-right">
-                      <p className="font-medium">{department.manager}</p>
-                      <p className="text-sm text-muted-foreground">{department.managerTitle}</p>
-                    </div>
-                    <div className="h-10 w-10 rounded-full overflow-hidden">
-                      <img 
-                        src={department.managerImage} 
-                        alt={department.manager} 
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-0">
-                  {department.teams.map((team) => (
-                    <div key={team.id} className="p-4 border-b md:border-r">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-medium">{team.name}</h4>
-                        <Badge variant="outline">
-                          {team.headCount} members
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground mb-3">
-                        {team.description}
-                      </p>
-                      <div className="flex items-center">
-                        <User className="h-4 w-4 text-muted-foreground mr-2" />
-                        <span className="text-sm">Lead: {team.lead}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </TabsContent>
-        
-        <TabsContent value="grid" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {departments.map((department) => (
-              <Card key={department.id}>
-                <CardHeader>
-                  <div className="flex items-center gap-2">
-                    <Building2 className="h-5 w-5 text-primary" />
-                    <CardTitle className="text-lg">{department.name}</CardTitle>
-                  </div>
-                  <CardDescription>
-                    {department.headCount} employees • {department.teams.length} teams
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="h-10 w-10 rounded-full overflow-hidden">
-                        <img 
-                          src={department.managerImage} 
-                          alt={department.manager} 
-                          className="h-full w-full object-cover"
-                        />
-                      </div>
-                      <div>
-                        <p className="font-medium">{department.manager}</p>
-                        <p className="text-sm text-muted-foreground">{department.managerTitle}</p>
-                      </div>
-                    </div>
-                    
-                    <h4 className="text-sm font-medium mb-2">Teams:</h4>
-                    <div className="space-y-1">
-                      {department.teams.map((team) => (
-                        <div key={team.id} className="flex items-center justify-between">
-                          <span className="text-sm">{team.name}</span>
-                          <Badge variant="outline" className="text-xs">
-                            {team.headCount}
-                          </Badge>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {isLoading ? (
+          <div className="col-span-full flex items-center justify-center p-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mr-2" />
+            <p>Loading departments...</p>
           </div>
-        </TabsContent>
-        
-        <TabsContent value="tree" className="space-y-4">
-          <Card>
-            <CardContent className="p-6">
-              <div className="space-y-4">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Users className="h-6 w-6 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold">Savannah Prime Agency</h3>
-                    <p className="text-muted-foreground">Organizational Structure</p>
-                  </div>
-                </div>
-                
-                <div className="space-y-4 pl-6 border-l">
-                  {departments.map((department) => (
-                    <div key={department.id} className="space-y-2">
-                      <div className="flex items-center gap-3 relative">
-                        <div className="absolute -left-10 top-4 h-4 w-8 border-t border-l border-border"></div>
-                        <div className="h-8 w-8 rounded-full bg-accent flex items-center justify-center">
-                          <Building2 className="h-4 w-4" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center justify-between">
-                            <h4 className="font-medium">{department.name} Department</h4>
-                            <Badge variant="outline">
-                              {department.headCount} employees
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground">
-                            Manager: {department.manager}, {department.managerTitle}
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-2 pl-12 border-l ml-4">
-                        {department.teams.map((team) => (
-                          <div key={team.id} className="flex items-center gap-3 relative">
-                            <div className="absolute -left-8 top-4 h-4 w-8 border-t border-l border-border"></div>
-                            <div className="h-8 w-8 rounded-full bg-background border border-border flex items-center justify-center">
-                              <Users className="h-4 w-4" />
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-center justify-between">
-                                <h5 className="font-medium">{team.name}</h5>
-                                <Badge variant="outline" className="text-xs">
-                                  {team.headCount} members
-                                </Badge>
-                              </div>
-                              <p className="text-sm text-muted-foreground">
-                                Lead: {team.lead}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-      
-      <div className="flex justify-center mt-6">
-        <Button variant="outline">
-          Export Organization Chart
-        </Button>
+        ) : isError ? (
+          <div className="col-span-full text-center p-12 text-red-500">
+            <p>Error loading departments. Please try again.</p>
+          </div>
+        ) : departments.length === 0 ? (
+          <div className="col-span-full flex flex-col items-center justify-center p-12 border border-dashed rounded-lg">
+            <Layers className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium mb-2">No Departments Yet</h3>
+            <p className="text-muted-foreground text-center mb-4">
+              Create departments to organize your team structure.
+            </p>
+            <Button onClick={() => setAddDepartmentOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Your First Department
+            </Button>
+          </div>
+        ) : (
+          departments.map(department => (
+            <DepartmentCard
+              key={department.id}
+              id={department.id}
+              name={department.name}
+              description={department.description}
+              employeeCount={department.employeeCount}
+              onEdit={handleEditClick}
+              onDelete={handleDeleteClick}
+            />
+          ))
+        )}
       </div>
+      
+      {/* Organization chart will be added here in a future enhancement */}
+      
+      <AddDepartmentForm 
+        open={addDepartmentOpen}
+        onOpenChange={setAddDepartmentOpen}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['departments'] });
+        }}
+      />
+      
+      <DeleteConfirmationDialog 
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        departmentName={selectedDepartment?.name || ''}
+        onConfirm={confirmDelete}
+        isDeleting={deleteMutation.isPending}
+      />
     </div>
   );
 };
