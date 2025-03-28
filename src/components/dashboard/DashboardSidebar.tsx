@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,12 +10,10 @@ import {
   HelpCircle,
   LogOut,
   User,
-  Moon,
-  ChevronDown
+  Moon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import LogoutButton from '@/components/common/LogoutButton';
-import { Badge } from '@/components/ui/badge';
 
 export interface DashboardSidebarProps {
   className?: string;
@@ -182,5 +181,8 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
     </div>
   );
 };
+
+// Add the missing ChevronDown icon import
+import { ChevronDown } from "lucide-react";
 
 export default DashboardSidebar;
