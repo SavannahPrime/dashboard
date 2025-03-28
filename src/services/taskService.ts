@@ -30,7 +30,7 @@ export const fetchTasks = async (): Promise<Task[]> => {
       assignees: task.employees ? (
         // Check if employees is an array and handle accordingly
         Array.isArray(task.employees) ? 
-          task.employees.map((employee: any) => ({
+          task.employees.map((employee: { name?: string; profile_image?: string }) => ({
             id: 1, // Will be replaced with actual ID from DB
             name: employee.name || 'Unknown',
             image: employee.profile_image || `https://ui-avatars.com/api/?name=${encodeURIComponent(employee.name || 'Unknown')}&background=6366f1&color=fff`
@@ -38,8 +38,8 @@ export const fetchTasks = async (): Promise<Task[]> => {
           // Handle single employee object case
           [{
             id: 1, // Will be replaced with actual ID from DB
-            name: task.employees.name || 'Unknown',
-            image: task.employees.profile_image || `https://ui-avatars.com/api/?name=${encodeURIComponent(task.employees.name || 'Unknown')}&background=6366f1&color=fff`
+            name: (task.employees as any).name || 'Unknown',
+            image: (task.employees as any).profile_image || `https://ui-avatars.com/api/?name=${encodeURIComponent((task.employees as any).name || 'Unknown')}&background=6366f1&color=fff`
           }]
       ) : [],
       dueDate: task.due_date,
