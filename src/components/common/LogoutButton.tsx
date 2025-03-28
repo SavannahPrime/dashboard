@@ -9,49 +9,53 @@ import { useAdminAuth } from '@/contexts/AdminAuthContext';
 
 interface LogoutButtonProps {
   isAdminLogout?: boolean;
-  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
+  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link' | 'success' | 'warning';
   size?: 'default' | 'sm' | 'lg' | 'icon';
   className?: string;
+  children?: React.ReactNode;
 }
 
 const LogoutButton: React.FC<LogoutButtonProps> = ({ 
   isAdminLogout = false, 
   variant = 'ghost',
   size = 'default',
-  className = ''
+  className = '',
+  children
 }) => {
   const navigate = useNavigate();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const { logout: clientLogout } = useAuth();
   const { logout: adminLogout } = useAdminAuth();
   
-  const handleLogout = async () => {
+  const handleLogout = () => {
     if (isLoggingOut) return; // Prevent multiple clicks
     
+    setIsLoggingOut(true);
+    
     try {
-      setIsLoggingOut(true);
-      toast.loading('Logging out...');
-      
+      // Navigate immediately to reduce perceived delay
       if (isAdminLogout) {
-        await adminLogout();
-        // Short delay to ensure state is updated
+        navigate('/admin/login');
+        // Perform logout after navigation starts
         setTimeout(() => {
-          navigate('/admin/login');
-        }, 100);
+          adminLogout().finally(() => {
+            setIsLoggingOut(false);
+            toast.success('Successfully logged out');
+          });
+        }, 0);
       } else {
-        await clientLogout();
+        navigate('/login');
+        // Perform logout after navigation starts
         setTimeout(() => {
-          navigate('/login');
-        }, 100);
+          clientLogout().finally(() => {
+            setIsLoggingOut(false);
+            toast.success('Successfully logged out');
+          });
+        }, 0);
       }
-      
-      toast.dismiss();
-      toast.success('Successfully logged out');
     } catch (error) {
       console.error('Logout error:', error);
-      toast.dismiss();
       toast.error('Failed to log out. Please try again.');
-    } finally {
       setIsLoggingOut(false);
     }
   };
@@ -67,9 +71,13 @@ const LogoutButton: React.FC<LogoutButtonProps> = ({
       {isLoggingOut ? (
         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
       ) : (
-        <LogOut className="h-4 w-4 mr-2" />
+        children || (
+          <>
+            <LogOut className="h-4 w-4 mr-2" />
+            Log Out
+          </>
+        )
       )}
-      Log Out
     </Button>
   );
 };

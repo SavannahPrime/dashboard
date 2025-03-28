@@ -1,187 +1,183 @@
-
 import React from 'react';
-import { Link, NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTheme } from '@/contexts/ThemeContext';
-import { Button } from '@/components/ui/button';
-import LogoutButton from '@/components/common/LogoutButton';
-import {
-  CreditCard,
-  Home,
-  Package,
-  MessageSquare,
-  Settings,
-  Moon,
-  Sun,
-  ChevronDown,
-  User,
+import { 
+  Home, 
+  Settings, 
+  Package, 
+  CreditCard, 
   HelpCircle,
+  LogOut,
+  User,
+  Moon,
+  ChevronDown
 } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@/components/ui/avatar";
-import { Separator } from "@/components/ui/separator";
+import { cn } from '@/lib/utils';
+import LogoutButton from '@/components/common/LogoutButton';
+import { Badge } from '@/components/ui/badge';
 
-interface DashboardSidebarProps {
+export interface DashboardSidebarProps {
   className?: string;
+  onNavClick?: () => void;
 }
 
-const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ className }) => {
-  const { theme, setTheme } = useTheme();
-  const { currentUser } = useAuth();
+const DashboardSidebar: React.FC<DashboardSidebarProps> = ({ 
+  className,
+  onNavClick 
+}) => {
   const location = useLocation();
-
-  // Check if path starts with the given route
-  const isActive = (path: string) => {
-    return location.pathname.startsWith(path);
+  const { currentUser } = useAuth();
+  
+  const handleNavClick = () => {
+    if (onNavClick) {
+      onNavClick();
+    }
   };
-
+  
+  const navItems = [
+    {
+      title: 'Dashboard',
+      href: '/dashboard',
+      icon: <Home className="h-5 w-5" />
+    },
+    {
+      title: 'Services',
+      href: '/dashboard/services',
+      icon: <Package className="h-5 w-5" />
+    },
+    {
+      title: 'Billing',
+      href: '/dashboard/billing',
+      icon: <CreditCard className="h-5 w-5" />
+    },
+    {
+      title: 'Support',
+      href: '/dashboard/support',
+      icon: <HelpCircle className="h-5 w-5" />
+    },
+    {
+      title: 'Settings',
+      href: '/dashboard/settings',
+      icon: <Settings className="h-5 w-5" />
+    }
+  ];
+  
   return (
-    <div className={`hidden border-r bg-card md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 z-30 ${className}`}>
-      <div className="flex flex-col h-full">
-        <div className="flex items-center px-6 py-4 h-16">
-          <Link to="/" className="flex items-center gap-2 font-semibold text-xl">
-            Savannah Prime
-          </Link>
+    <div className={cn("flex flex-col w-64 h-full border-r border-[#2a3347] bg-[#0f1523]", className)}>
+      {/* Logo */}
+      <div className="px-6 py-5 flex items-center h-16 border-b border-[#2a3347]">
+        <NavLink to="/dashboard" className="flex items-center">
+          <span className="text-xl font-bold">Savannah Prime</span>
+        </NavLink>
+      </div>
+      
+      {/* Navigation Items */}
+      <nav className="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
+        {navItems.map((item) => {
+          const isActive = location.pathname === item.href;
+          
+          return (
+            <NavLink
+              key={item.href}
+              to={item.href}
+              onClick={handleNavClick}
+              className={({ isActive }) =>
+                cn(
+                  "flex items-center px-4 py-2 text-sm rounded-md transition-colors",
+                  {
+                    "bg-[#4086f4] text-white": isActive,
+                    "text-[#8a9cb0] hover:text-white hover:bg-[#172138]": !isActive
+                  }
+                )
+              }
+            >
+              <span className="mr-3">{item.icon}</span>
+              {item.title}
+            </NavLink>
+          );
+        })}
+      </nav>
+      
+      {/* My Account Section */}
+      <div className="px-4 py-2 mt-4">
+        <div className="text-[#8a9cb0] text-sm font-medium mb-2">My Account</div>
+        <NavLink 
+          to="/dashboard/settings/profile" 
+          className={({ isActive }) =>
+            cn(
+              "flex items-center px-4 py-2 text-sm rounded-md transition-colors",
+              {
+                "bg-[#4086f4] text-white": isActive,
+                "text-[#8a9cb0] hover:text-white hover:bg-[#172138]": !isActive
+              }
+            )
+          }
+        >
+          <User className="h-5 w-5 mr-3" />
+          Profile
+        </NavLink>
+        
+        <NavLink 
+          to="/dashboard/billing" 
+          className={({ isActive }) =>
+            cn(
+              "flex items-center px-4 py-2 text-sm rounded-md transition-colors",
+              {
+                "bg-[#4086f4] text-white": isActive,
+                "text-[#8a9cb0] hover:text-white hover:bg-[#172138]": !isActive
+              }
+            )
+          }
+        >
+          <CreditCard className="h-5 w-5 mr-3" />
+          Billing
+        </NavLink>
+        
+        <NavLink 
+          to="/dashboard/support" 
+          className={({ isActive }) =>
+            cn(
+              "flex items-center px-4 py-2 text-sm rounded-md transition-colors",
+              {
+                "bg-[#4086f4] text-white": isActive,
+                "text-[#8a9cb0] hover:text-white hover:bg-[#172138]": !isActive
+              }
+            )
+          }
+        >
+          <HelpCircle className="h-5 w-5 mr-3" />
+          Support
+        </NavLink>
+        
+        <button className="w-full flex items-center px-4 py-2 text-sm rounded-md text-[#8a9cb0] hover:text-white hover:bg-[#172138] transition-colors">
+          <Moon className="h-5 w-5 mr-3" />
+          Light Mode
+        </button>
+      </div>
+      
+      {/* User Profile & Logout Button */}
+      <div className="p-4 border-t border-[#2a3347]">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center">
+            <div className="h-10 w-10 rounded-full bg-[#4086f4] flex items-center justify-center text-white font-medium">
+              {currentUser?.email ? currentUser.email.charAt(0).toUpperCase() : 'U'}
+            </div>
+            <div className="ml-3">
+              <p className="text-sm font-medium truncate max-w-[120px]">
+                {currentUser?.email?.split('@')[0] || '2206120'}
+              </p>
+              <Badge className="mt-1 bg-[#4086f4] text-white">client</Badge>
+            </div>
+          </div>
+          <button className="text-[#8a9cb0] hover:text-white">
+            <ChevronDown className="h-5 w-5" />
+          </button>
         </div>
         
-        <Separator />
-        
-        <div className="flex-1 overflow-auto py-4">
-          <nav className="grid items-start gap-2 px-4">
-            <NavLink
-              to="/dashboard"
-              end
-              className={({ isActive }) =>
-                `flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-secondary
-                ${isActive ? 'bg-secondary text-primary font-semibold' : 'text-muted-foreground'}`
-              }
-            >
-              <Home className="h-4 w-4" />
-              Dashboard
-            </NavLink>
-            
-            <NavLink
-              to="/dashboard/services"
-              className={({ isActive }) =>
-                `flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-secondary
-                ${isActive ? 'bg-secondary text-primary font-semibold' : 'text-muted-foreground'}`
-              }
-            >
-              <Package className="h-4 w-4" />
-              Services
-            </NavLink>
-            
-            <NavLink
-              to="/dashboard/billing"
-              className={({ isActive }) =>
-                `flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-secondary
-                ${isActive ? 'bg-secondary text-primary font-semibold' : 'text-muted-foreground'}`
-              }
-            >
-              <CreditCard className="h-4 w-4" />
-              Billing
-            </NavLink>
-            
-            <NavLink
-              to="/dashboard/support"
-              className={({ isActive }) =>
-                `flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-secondary
-                ${isActive ? 'bg-secondary text-primary font-semibold' : 'text-muted-foreground'}`
-              }
-            >
-              <MessageSquare className="h-4 w-4" />
-              Support
-            </NavLink>
-            
-            <NavLink
-              to="/dashboard/settings"
-              className={({ isActive }) =>
-                `flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-secondary
-                ${isActive ? 'bg-secondary text-primary font-semibold' : 'text-muted-foreground'}`
-              }
-            >
-              <Settings className="h-4 w-4" />
-              Settings
-            </NavLink>
-          </nav>
-        </div>
-        
-        <Separator />
-        
-        <div className="p-4">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm font-medium hover:bg-secondary">
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={currentUser?.profileImage} alt={currentUser?.name} />
-                    <AvatarFallback>{currentUser?.name?.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex flex-col items-start">
-                    <span className="font-medium truncate max-w-[120px]">{currentUser?.name}</span>
-                    <span className="text-xs text-muted-foreground truncate max-w-[120px]">{currentUser?.email}</span>
-                  </div>
-                </div>
-                <ChevronDown className="h-4 w-4 opacity-50" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>My Account</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link to="/dashboard/settings" className="flex items-center">
-                  <User className="mr-2 h-4 w-4" />
-                  <span>Profile</span>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to="/dashboard/billing" className="flex items-center">
-                  <CreditCard className="mr-2 h-4 w-4" />
-                  <span>Billing</span>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link to="/dashboard/support" className="flex items-center">
-                  <HelpCircle className="mr-2 h-4 w-4" />
-                  <span>Support</span>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => {
-                if (theme === "light") {
-                  setTheme("dark")
-                } else {
-                  setTheme("light")
-                }
-              }}>
-                {theme === "light" ? (
-                  <>
-                    <Moon className="mr-2 h-4 w-4" />
-                    <span>Dark Mode</span>
-                  </>
-                ) : (
-                  <>
-                    <Sun className="mr-2 h-4 w-4" />
-                    <span>Light Mode</span>
-                  </>
-                )}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <LogoutButton />
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+        <LogoutButton className="w-full justify-start" variant="outline">
+          <LogOut className="h-5 w-5 mr-3" />
+          <span>Log Out</span>
+        </LogoutButton>
       </div>
     </div>
   );
