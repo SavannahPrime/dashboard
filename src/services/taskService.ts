@@ -30,8 +30,8 @@ export const fetchTasks = async (): Promise<Task[]> => {
       assignees: task.employees ? [
         {
           id: 1, // Will be replaced with actual ID from DB
-          name: task.employees.name,
-          image: task.employees.profile_image || `https://ui-avatars.com/api/?name=${encodeURIComponent(task.employees.name)}&background=6366f1&color=fff`
+          name: task.employees.name || 'Unknown',
+          image: task.employees.profile_image || `https://ui-avatars.com/api/?name=${encodeURIComponent(task.employees.name || 'Unknown')}&background=6366f1&color=fff`
         }
       ] : [],
       dueDate: task.due_date,

@@ -39,7 +39,8 @@ import {
   MessageSquare,
   Calendar,
   Download,
-  Loader2
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchTasks, updateTaskStatus } from '@/services/taskService';
