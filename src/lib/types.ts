@@ -75,7 +75,7 @@ export interface Transaction {
   service_name: string;
 }
 
-// Add the missing PaymentType interface
+// Payment Type interface
 export interface PaymentType {
   id: string;
   client_id: string;
@@ -88,7 +88,7 @@ export interface PaymentType {
   invoice_number?: string;
 }
 
-// Add the missing SupportTicket interface
+// Support Ticket interface
 export interface SupportTicket {
   id: string;
   subject: string;
@@ -99,11 +99,11 @@ export interface SupportTicket {
   lastUpdated: string;
 }
 
-// Add missing props interfaces for components
+// Component props interfaces
 export interface StatCardProps {
   title: string;
   value: string;
-  description?: string; // Make description optional
+  description: string; // Make description required
   icon?: React.ReactNode;
   actionLabel?: string;
   onAction?: () => void;
@@ -112,13 +112,13 @@ export interface StatCardProps {
 
 export interface ServiceCardProps {
   service: ServiceOption;
-  onRemove?: () => Promise<void>;
+  onRemove: () => Promise<void>; // Make onRemove required
   isUpdating?: boolean;
 }
 
 export interface ServiceSelectionCardProps {
   service: ServiceOption;
-  isSelected?: boolean;
-  onToggle?: () => Promise<void>;
+  isSelected: boolean; // Make isSelected required
+  onToggle: () => Promise<void>; // Make onToggle required
   isUpdating?: boolean;
 }

@@ -3,15 +3,26 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
+export type ClientUser = {
+  id: string;
+  email: string;
+  name: string;
+  subscription_status?: string;
+  selected_services?: string[];
+  [key: string]: any;
+};
+
 export type AuthContextType = {
-  currentUser: any | null;
+  currentUser: ClientUser | null;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, name: string) => Promise<void>;
+  signup: (email: string, password: string, name: string, serviceNames?: string[]) => Promise<void>;
+  register: (email: string, password: string, name: string, serviceNames?: string[]) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  updateUser: (data: Partial<ClientUser>) => Promise<void>;
   isAuthenticated: boolean;
   isLoading: boolean;
-  refreshUserData: () => Promise<void>; // Add this line
+  refreshUserData: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -29,7 +40,7 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<any | null>(null);
+  const [currentUser, setCurrentUser] = useState<ClientUser | null>(null);
   const [session, setSession] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
@@ -129,7 +140,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const signup = async (email: string, password: string, name: string) => {
+  const signup = async (email: string, password: string, name: string, serviceNames: string[] = []) => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -152,15 +163,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           email: data.user?.email,
           name: name,
           subscription_status: 'active',
-          selected_services: []
+          selected_services: serviceNames || []
         });
 
       if (clientError) throw clientError;
 
       setCurrentUser({
-        id: data.user?.id,
-        email: data.user?.email,
-        name: name
+        id: data.user?.id || '',
+        email: data.user?.email || '',
+        name: name,
+        subscription_status: 'active',
+        selected_services: serviceNames || []
       });
 
       toast.success('Successfully signed up');
@@ -172,6 +185,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setIsLoading(false);
     }
   };
+
+  const register = signup;
 
   const logout = async () => {
     setIsLoading(true);
@@ -200,6 +215,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (error: any) {
       console.error("Reset password error:", error);
       toast.error(error.message || 'Failed to send reset password email');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const updateUser = async (data: Partial<ClientUser>) => {
+    if (!currentUser?.id) {
+      toast.error('You must be logged in to update your profile');
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      const { error } = await supabase
+        .from('clients')
+        .update(data)
+        .eq('id', currentUser.id);
+      
+      if (error) throw error;
+      
+      // Update the local user state
+      setCurrentUser(prev => prev ? { ...prev, ...data } : null);
+      toast.success('Profile updated successfully');
+    } catch (error: any) {
+      console.error('Error updating user:', error);
+      toast.error(error.message || 'Failed to update profile');
     } finally {
       setIsLoading(false);
     }
@@ -234,11 +275,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     currentUser,
     login,
     signup,
+    register,
     logout,
     resetPassword,
+    updateUser,
     isAuthenticated: !!session?.user,
     isLoading,
-    refreshUserData // Add this line
+    refreshUserData
   };
 
   return (
