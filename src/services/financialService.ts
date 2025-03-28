@@ -293,7 +293,7 @@ export const exportFinancialReport = async (
       data.forEach(item => {
         csvContent += `${item.id},`;
         
-        // Fix: Access clients properly as a single object, not an array
+        // Fix the type issue by treating clients as a single object and adding proper null checking
         const clientData = item.clients || {};
         const clientName = typeof clientData.name === 'string' ? clientData.name : 'Unknown';
         
