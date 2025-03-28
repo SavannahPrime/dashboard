@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export type MessageThread = {
@@ -57,12 +58,11 @@ export const fetchMessageThreads = async (): Promise<MessageThread[]> => {
         timestamp: msg.timestamp
       }));
       
-      // Fix: Access clients object correctly with proper type checking
-      // Define default values for all properties to avoid 'undefined' errors
+      // Fix: Create a safe client object with proper type checking and fallbacks
       const clientData = thread.clients || {};
       const defaultName = 'Unknown';
       
-      // Create safe client object with fallback values
+      // Create safe client object with fallback values - ensuring all properties are properly typed
       const safeClient = {
         id: typeof clientData.id === 'string' ? clientData.id : '',
         name: typeof clientData.name === 'string' ? clientData.name : defaultName,

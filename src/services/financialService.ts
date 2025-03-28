@@ -295,7 +295,7 @@ export const exportFinancialReport = async (
         
         // Fix: Access clients properly as a single object, not an array
         const clientData = item.clients || {};
-        const clientName = clientData.name || 'Unknown';
+        const clientName = typeof clientData.name === 'string' ? clientData.name : 'Unknown';
         
         csvContent += `"${clientName}",`;
         csvContent += `${item.amount},`;
