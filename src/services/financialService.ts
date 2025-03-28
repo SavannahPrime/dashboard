@@ -174,15 +174,20 @@ export const fetchRecentTransactions = async (limit = 5): Promise<Transaction[]>
     
     if (error) throw error;
     
-    return data.map(transaction => ({
-      id: transaction.id,
-      customer: transaction.clients?.name || 'Unknown',
-      customerId: transaction.clients?.id || '',
-      amount: parseFloat(transaction.amount) || 0,
-      status: transaction.status as 'completed' | 'pending' | 'failed',
-      date: transaction.date,
-      description: transaction.description || ''
-    }));
+    return data.map(transaction => {
+      // Fix the type issue by treating clients as a single object and adding proper null checking
+      const clientData = transaction.clients || {};
+      
+      return {
+        id: transaction.id,
+        customer: typeof clientData.name === 'string' ? clientData.name : 'Unknown',
+        customerId: typeof clientData.id === 'string' ? clientData.id : '',
+        amount: parseFloat(transaction.amount) || 0,
+        status: transaction.status as 'completed' | 'pending' | 'failed',
+        date: transaction.date,
+        description: transaction.description || ''
+      };
+    });
   } catch (error) {
     console.error('Error fetching recent transactions:', error);
     return [];
