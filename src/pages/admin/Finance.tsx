@@ -1,29 +1,46 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
-import { Download, DollarSign, CreditCard, TrendingUp, AlertTriangle, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { Download, DollarSign, CreditCard, TrendingUp, AlertTriangle, ArrowUpRight, ArrowDownRight, Loader2 } from 'lucide-react';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
 import { toast } from 'sonner';
+import { 
+  fetchRevenueData, 
+  fetchUserStats, 
+  fetchRecentTransactions, 
+  fetchTransactionSummary,
+  exportFinancialReport,
+  type Transaction
+} from '@/services/financialService';
 
 const Finance: React.FC = () => {
   const { currentAdmin } = useAdminAuth();
   const [timeRange, setTimeRange] = useState('last30days');
   const [reportType, setReportType] = useState('revenue');
+  const [isLoading, setIsLoading] = useState(true);
   
-  // Sample data for charts
-  const revenueData = [
-    { name: 'Jan', revenue: 14000, expenses: 9000, profit: 5000 },
-    { name: 'Feb', revenue: 18000, expenses: 10000, profit: 8000 },
-    { name: 'Mar', revenue: 16000, expenses: 9500, profit: 6500 },
-    { name: 'Apr', revenue: 19000, expenses: 11000, profit: 8000 },
-    { name: 'May', revenue: 22000, expenses: 12000, profit: 10000 },
-    { name: 'Jun', revenue: 25000, expenses: 13000, profit: 12000 },
-  ];
+  const [revenueData, setRevenueData] = useState<{ name: string; revenue: number; }[]>([]);
+  const [totalRevenue, setTotalRevenue] = useState(0);
+  const [revenueGrowth, setRevenueGrowth] = useState(0);
+  
+  const [userStats, setUserStats] = useState({
+    total: 0,
+    active: 0,
+    growth: 0
+  });
+  
+  const [transactionSummary, setTransactionSummary] = useState({
+    completed: 0,
+    failed: 0,
+    avgOrderValue: 0
+  });
+  
+  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   
   const paymentMethodData = [
     { name: 'Credit Card', value: 65 },
@@ -34,19 +51,88 @@ const Finance: React.FC = () => {
   
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
   
-  const exportReport = () => {
-    toast.info(`Exporting ${reportType} report for ${timeRange}...`);
-    // In a real app, this would connect to Supabase to generate and download a report
+  // Fetch all financial data
+  const fetchAllFinancialData = async () => {
+    setIsLoading(true);
+    try {
+      // Fetch revenue data
+      const revenue = await fetchRevenueData();
+      setRevenueData(revenue.byMonth);
+      setTotalRevenue(revenue.total);
+      setRevenueGrowth(revenue.growth);
+      
+      // Fetch user stats
+      const users = await fetchUserStats();
+      setUserStats({
+        total: users.total,
+        active: users.active,
+        growth: users.growth
+      });
+      
+      // Fetch transaction summary
+      const summary = await fetchTransactionSummary();
+      setTransactionSummary({
+        completed: summary.completed,
+        failed: summary.failed,
+        avgOrderValue: summary.avgOrderValue
+      });
+      
+      // Fetch recent transactions
+      const transactions = await fetchRecentTransactions();
+      setRecentTransactions(transactions);
+      
+      toast.success('Financial data updated successfully');
+    } catch (error) {
+      console.error('Error fetching financial data:', error);
+      toast.error('Failed to load financial data');
+    } finally {
+      setIsLoading(false);
+    }
   };
   
-  // Recent transactions data
-  const recentTransactions = [
-    { id: '1', customer: 'John Doe', amount: 599, status: 'completed', date: '2023-11-24' },
-    { id: '2', customer: 'Jane Smith', amount: 299, status: 'failed', date: '2023-11-23' },
-    { id: '3', customer: 'Robert Johnson', amount: 999, status: 'completed', date: '2023-11-22' },
-    { id: '4', customer: 'Lisa Brown', amount: 499, status: 'pending', date: '2023-11-22' },
-    { id: '5', customer: 'Michael Wilson', amount: 199, status: 'completed', date: '2023-11-21' },
-  ];
+  useEffect(() => {
+    fetchAllFinancialData();
+    
+    // Set up auto-refresh every 5 minutes (300000ms)
+    const intervalId = setInterval(() => {
+      fetchAllFinancialData();
+    }, 300000);
+    
+    return () => clearInterval(intervalId);
+  }, []);
+  
+  const exportReport = async () => {
+    toast.info(`Exporting ${reportType} report for ${timeRange}...`);
+    
+    try {
+      const blob = await exportFinancialReport(
+        reportType as any, 
+        timeRange as any
+      );
+      
+      if (!blob) {
+        toast.error('Failed to generate report');
+        return;
+      }
+      
+      // Create download link
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${reportType}_${timeRange}_report.csv`;
+      document.body.appendChild(a);
+      a.click();
+      
+      // Clean up
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast.success('Report downloaded successfully');
+    } catch (error) {
+      console.error('Error exporting report:', error);
+      toast.error('Failed to export report');
+    }
+  };
   
   // Helper function to get badge variant based on status
   const getBadgeVariant = (status: string) => {
@@ -60,6 +146,27 @@ const Finance: React.FC = () => {
         return 'outline';
     }
   };
+  
+  // Helper function to format currency
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount);
+  };
+  
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin mx-auto text-primary mb-4" />
+          <h3 className="text-lg font-medium">Loading financial data...</h3>
+        </div>
+      </div>
+    );
+  }
   
   return (
     <div className="space-y-6">
@@ -116,10 +223,19 @@ const Finance: React.FC = () => {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">$114,000</div>
+            <div className="text-2xl font-bold">{formatCurrency(totalRevenue)}</div>
             <div className="flex items-center pt-1">
-              <ArrowUpRight className="mr-1 h-4 w-4 text-green-500" />
-              <span className="text-xs text-green-500 font-medium">+18%</span>
+              {revenueGrowth >= 0 ? (
+                <>
+                  <ArrowUpRight className="mr-1 h-4 w-4 text-green-500" />
+                  <span className="text-xs text-green-500 font-medium">+{revenueGrowth.toFixed(1)}%</span>
+                </>
+              ) : (
+                <>
+                  <ArrowDownRight className="mr-1 h-4 w-4 text-red-500" />
+                  <span className="text-xs text-red-500 font-medium">{revenueGrowth.toFixed(1)}%</span>
+                </>
+              )}
               <span className="text-xs text-muted-foreground ml-1">from last month</span>
             </div>
           </CardContent>
@@ -130,10 +246,19 @@ const Finance: React.FC = () => {
             <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">874</div>
+            <div className="text-2xl font-bold">{userStats.active}</div>
             <div className="flex items-center pt-1">
-              <ArrowUpRight className="mr-1 h-4 w-4 text-green-500" />
-              <span className="text-xs text-green-500 font-medium">+4%</span>
+              {userStats.growth >= 0 ? (
+                <>
+                  <ArrowUpRight className="mr-1 h-4 w-4 text-green-500" />
+                  <span className="text-xs text-green-500 font-medium">+{userStats.growth.toFixed(1)}%</span>
+                </>
+              ) : (
+                <>
+                  <ArrowDownRight className="mr-1 h-4 w-4 text-red-500" />
+                  <span className="text-xs text-red-500 font-medium">{userStats.growth.toFixed(1)}%</span>
+                </>
+              )}
               <span className="text-xs text-muted-foreground ml-1">from last month</span>
             </div>
           </CardContent>
@@ -144,7 +269,7 @@ const Finance: React.FC = () => {
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">$486</div>
+            <div className="text-2xl font-bold">{formatCurrency(transactionSummary.avgOrderValue)}</div>
             <div className="flex items-center pt-1">
               <ArrowUpRight className="mr-1 h-4 w-4 text-green-500" />
               <span className="text-xs text-green-500 font-medium">+8%</span>
@@ -158,7 +283,7 @@ const Finance: React.FC = () => {
             <AlertTriangle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">12</div>
+            <div className="text-2xl font-bold">{transactionSummary.failed}</div>
             <div className="flex items-center pt-1">
               <ArrowDownRight className="mr-1 h-4 w-4 text-green-500" />
               <span className="text-xs text-green-500 font-medium">-3%</span>
@@ -181,7 +306,7 @@ const Finance: React.FC = () => {
             <Card className="lg:col-span-4">
               <CardHeader>
                 <CardTitle>Revenue Analysis</CardTitle>
-                <CardDescription>Revenue, expenses, and profit over time</CardDescription>
+                <CardDescription>Monthly revenue over time</CardDescription>
               </CardHeader>
               <CardContent className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
@@ -189,11 +314,9 @@ const Finance: React.FC = () => {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" />
                     <YAxis />
-                    <Tooltip />
+                    <Tooltip formatter={(value) => formatCurrency(Number(value))} />
                     <Legend />
                     <Bar dataKey="revenue" fill="#8884d8" name="Revenue" />
-                    <Bar dataKey="expenses" fill="#FF8042" name="Expenses" />
-                    <Bar dataKey="profit" fill="#82ca9d" name="Profit" />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -250,9 +373,9 @@ const Finance: React.FC = () => {
                   <tbody className="[&_tr:last-child]:border-0">
                     {recentTransactions.map(transaction => (
                       <tr key={transaction.id} className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
-                        <td className="p-4 align-middle">{transaction.id}</td>
+                        <td className="p-4 align-middle">{transaction.id.substring(0, 8)}...</td>
                         <td className="p-4 align-middle">{transaction.customer}</td>
-                        <td className="p-4 align-middle">${transaction.amount}</td>
+                        <td className="p-4 align-middle">{formatCurrency(transaction.amount)}</td>
                         <td className="p-4 align-middle">
                           <Badge
                             variant={getBadgeVariant(transaction.status)}
@@ -260,9 +383,16 @@ const Finance: React.FC = () => {
                             {transaction.status}
                           </Badge>
                         </td>
-                        <td className="p-4 align-middle">{transaction.date}</td>
+                        <td className="p-4 align-middle">{new Date(transaction.date).toLocaleDateString()}</td>
                       </tr>
                     ))}
+                    {recentTransactions.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="p-4 text-center text-muted-foreground">
+                          No transactions found
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -285,7 +415,6 @@ const Finance: React.FC = () => {
                   <Tooltip />
                   <Legend />
                   <Line type="monotone" dataKey="revenue" stroke="#8884d8" name="Active Subscriptions" />
-                  <Line type="monotone" dataKey="expenses" stroke="#FF8042" name="Churned Subscriptions" />
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>
@@ -306,7 +435,7 @@ const Finance: React.FC = () => {
                   <YAxis />
                   <Tooltip />
                   <Legend />
-                  <Bar dataKey="expenses" fill="#FF8042" name="Refund Amount" />
+                  <Bar dataKey="revenue" fill="#FF8042" name="Refund Amount" />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
