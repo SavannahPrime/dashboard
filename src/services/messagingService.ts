@@ -53,13 +53,25 @@ export const fetchMessageThreads = async (): Promise<MessageThread[]> => {
       // Ensure sender is either 'client' or 'admin'
       const messages = messageData.map(msg => ({
         id: msg.id,
-        sender: msg.sender === 'client' ? 'client' : 'admin' as 'client' | 'admin',
+        sender: (msg.sender === 'client' ? 'client' : 'admin') as 'client' | 'admin',
         content: msg.content,
         timestamp: msg.timestamp
       }));
       
-      // Fix: Access clients object correctly
-      const client = thread.clients || {};
+      // Fix: Access clients object correctly with proper type checking
+      // Define default values for all properties to avoid 'undefined' errors
+      const clientData = thread.clients || {};
+      const defaultName = 'Unknown';
+      
+      // Create safe client object with fallback values
+      const safeClient = {
+        id: typeof clientData.id === 'string' ? clientData.id : '',
+        name: typeof clientData.name === 'string' ? clientData.name : defaultName,
+        email: typeof clientData.email === 'string' ? clientData.email : '',
+        avatar: typeof clientData.profile_image === 'string' 
+          ? clientData.profile_image 
+          : `https://ui-avatars.com/api/?name=${encodeURIComponent(defaultName)}&background=6366f1&color=fff`
+      };
       
       return {
         id: thread.id,
@@ -67,12 +79,7 @@ export const fetchMessageThreads = async (): Promise<MessageThread[]> => {
         preview: thread.preview,
         date: thread.date,
         unread: thread.unread,
-        client: {
-          id: client.id || '',
-          name: client.name || 'Unknown',
-          email: client.email || '',
-          avatar: client.profile_image || `https://ui-avatars.com/api/?name=${encodeURIComponent(client.name || 'Unknown')}&background=6366f1&color=fff`
-        },
+        client: safeClient,
         messages
       };
     }));
