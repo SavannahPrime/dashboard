@@ -5,10 +5,8 @@ export interface ServiceOption {
   description: string;
   price: number;
   priceUnit: 'month' | 'year' | 'one-time';
-  icon?: string; // Make icon optional
+  icon: string;
   features: string[];
-  category?: string;
-  name?: string; // Added for compatibility with Supabase service data
 }
 
 export const serviceOptions: ServiceOption[] = [
