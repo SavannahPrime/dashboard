@@ -1,29 +1,37 @@
 
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, BarChart3, CreditCard, AlertCircle, Users, Bell, Clock, CheckCircle, Loader2 } from 'lucide-react';
+import { 
+  Users, 
+  CreditCard, 
+  Clock, 
+  Calendar,
+  ChevronRight,
+  CheckCircle,
+  ArrowUp
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import StatCard from '@/components/dashboard/StatCard';
-import CommunicationCenter from '@/components/dashboard/CommunicationCenter';
-import SubscriptionStatusCard from '@/components/dashboard/SubscriptionStatusCard';
 
 const Dashboard: React.FC = () => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [services, setServices] = useState<any[]>([]);
   const [stats, setStats] = useState({
     activeServices: 0,
-    totalSpent: 0,
-    nextPayment: null as null | string,
-    unreadMessages: 0
+    nextPayment: {
+      amount: 348,
+      date: '07/15/2023',
+    },
+    subscriptionStatus: 'Active',
+    subscriptionExpiry: '4/25/2025'
   });
-  const [announcements, setAnnouncements] = useState<any[]>([]);
   
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -40,44 +48,24 @@ const Dashboard: React.FC = () => {
         
         if (clientError) throw clientError;
         
-        // Fetch transactions
-        const { data: transactions, error: transactionsError } = await supabase
-          .from('transactions')
-          .select('amount')
-          .eq('client_id', currentUser.id)
-          .eq('status', 'completed');
-        
-        if (transactionsError) throw transactionsError;
-        
-        // Fetch unread communications
-        const { data: communications, error: communicationsError } = await supabase
-          .from('communications')
-          .select('id')
-          .eq('client_id', currentUser.id)
-          .eq('unread', true);
-        
-        if (communicationsError) throw communicationsError;
-        
-        // Fetch public announcements
-        const { data: announcementsData, error: announcementsError } = await supabase
-          .from('announcements')
+        // Fetch services details
+        const { data: servicesData, error: servicesError } = await supabase
+          .from('services')
           .select('*')
-          .eq('status', 'published')
-          .eq('audience', 'all')
-          .order('date', { ascending: false })
-          .limit(5);
+          .in('name', clientData.selected_services || []);
+          
+        if (servicesError) throw servicesError;
         
-        if (announcementsError) throw announcementsError;
-        
-        // Update stats
+        setServices(servicesData || []);
         setStats({
           activeServices: (clientData?.selected_services || []).length,
-          totalSpent: transactions ? transactions.reduce((sum, t) => sum + Number(t.amount), 0) : 0,
-          nextPayment: clientData?.subscription_expiry || null,
-          unreadMessages: communications ? communications.length : 0
+          nextPayment: {
+            amount: 348,
+            date: '07/15/2023',
+          },
+          subscriptionStatus: clientData?.subscription_status || 'Active',
+          subscriptionExpiry: clientData?.subscription_expiry || '4/25/2025'
         });
-        
-        setAnnouncements(announcementsData || []);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
         toast.error('Failed to load dashboard data');
@@ -89,130 +77,184 @@ const Dashboard: React.FC = () => {
     fetchDashboardData();
   }, [currentUser?.id]);
   
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-[60vh]">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      </div>
-    );
-  }
-  
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Welcome back, {currentUser?.name || 'Client'}
-        </p>
-      </div>
-      
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard 
-          title="Active Services" 
-          value={stats.activeServices.toString()}
-          description={stats.activeServices === 0 ? "No active services" : "Services in your account"}
-          icon={<Users className="h-4 w-4 text-muted-foreground" />}
-          actionLabel={stats.activeServices === 0 ? "Browse Services" : "Manage Services"}
-          onAction={() => navigate('/dashboard/services')}
-        />
+    <div className="min-h-screen bg-[#0f1523] text-white">
+      <div className="px-6 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold tracking-tight">Welcome back, {currentUser?.name || currentUser?.email?.split('@')[0] || 'Client'}</h1>
+          <p className="text-[#8a9cb0] text-lg mt-2">
+            Here's what's happening with your account today
+          </p>
+        </div>
         
-        <StatCard 
-          title="Total Spent" 
-          value={`$${stats.totalSpent.toFixed(2)}`}
-          description="Total amount spent to date"
-          icon={<CreditCard className="h-4 w-4 text-muted-foreground" />}
-          actionLabel="View Billing History"
-          onAction={() => navigate('/dashboard/billing')}
-        />
-        
-        <StatCard 
-          title="Next Payment" 
-          value={stats.nextPayment ? new Date(stats.nextPayment).toLocaleDateString() : 'N/A'}
-          description={stats.nextPayment ? "Upcoming payment date" : "No scheduled payments"}
-          icon={<Calendar className="h-4 w-4 text-muted-foreground" />}
-          actionLabel="Manage Payments"
-          onAction={() => navigate('/dashboard/billing')}
-        />
-        
-        <StatCard 
-          title="Messages" 
-          value={stats.unreadMessages.toString()} 
-          description={stats.unreadMessages === 1 ? "Unread message" : "Unread messages"}
-          icon={<Bell className="h-4 w-4 text-muted-foreground" />}
-          actionLabel="View Messages"
-          onAction={() => navigate('/dashboard/support')}
-          highlighted={stats.unreadMessages > 0}
-        />
-      </div>
-      
-      <div className="grid gap-6 md:grid-cols-2">
-        <SubscriptionStatusCard />
-        
-        <CommunicationCenter />
-      </div>
-      
-      <Tabs defaultValue="announcements">
-        <TabsList>
-          <TabsTrigger value="announcements">Announcements</TabsTrigger>
-          <TabsTrigger value="activity">Recent Activity</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="announcements" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Latest Announcements</CardTitle>
-              <CardDescription>
-                Important updates and news
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {announcements.length > 0 ? (
-                <div className="space-y-4">
-                  {announcements.map(announcement => (
-                    <div key={announcement.id} className="border rounded-lg p-4">
-                      <div className="flex items-start justify-between">
-                        <h3 className="font-semibold">{announcement.title}</h3>
-                        <Badge variant="secondary">
-                          {new Date(announcement.date).toLocaleDateString()}
-                        </Badge>
-                      </div>
-                      <p className="mt-2 text-muted-foreground">{announcement.content}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-6">
-                  <Bell className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-                  <h3 className="text-lg font-medium">No announcements</h3>
-                  <p className="text-muted-foreground">
-                    There are no recent announcements to display
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="activity">
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Activity</CardTitle>
-              <CardDescription>
-                Your recent account activity
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-6">
-                <Clock className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-                <h3 className="text-lg font-medium">Activity tracking coming soon</h3>
-                <p className="text-muted-foreground">
-                  We're working on tracking your account activity
-                </p>
+        {/* Stats Cards */}
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-10">
+          <StatCard 
+            title="Services Active"
+            value={stats.activeServices.toString()}
+            icon={<Users className="h-6 w-6 text-[#4086f4]" />}
+            iconBg="bg-[#172138]"
+          />
+          
+          <StatCard 
+            title="Next Payment"
+            value={`$${stats.nextPayment.amount}`}
+            subtext={`Due on Jul 15, 2023`}
+            icon={<CreditCard className="h-6 w-6 text-[#4086f4]" />}
+            iconBg="bg-[#172138]"
+          />
+          
+          <StatCard 
+            title="Subscription Status"
+            value={stats.subscriptionStatus}
+            statusIndicator={
+              <div className="flex items-center text-green-500">
+                <ArrowUp className="h-3 w-3 mr-1" />
+                <span>0% vs last period</span>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            }
+            icon={<Clock className="h-6 w-6 text-[#4086f4]" />}
+            iconBg="bg-[#172138]"
+          />
+          
+          <StatCard 
+            title="Subscription Expiry"
+            value={stats.subscriptionExpiry}
+            icon={<Calendar className="h-6 w-6 text-[#4086f4]" />}
+            iconBg="bg-[#172138]"
+          />
+        </div>
+        
+        {/* Your Services Section */}
+        <div className="mb-10">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold">Your Services</h2>
+            <Button 
+              variant="ghost" 
+              className="text-[#4086f4] hover:text-blue-400"
+              onClick={() => navigate('/dashboard/services')}
+            >
+              View All <ChevronRight className="ml-1 h-4 w-4" />
+            </Button>
+          </div>
+          
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {services.slice(0, 3).map((service) => (
+              <ServiceCard 
+                key={service.id}
+                title={service.name}
+                description={service.description}
+                status="Active"
+              />
+            ))}
+            
+            {services.length === 0 && (
+              <div className="col-span-2 lg:col-span-3 p-8 rounded-lg border border-[#2a3347] text-center">
+                <h3 className="text-xl font-medium mb-2">No active services</h3>
+                <p className="text-[#8a9cb0] mb-4">Browse our services and add them to your account</p>
+                <Button onClick={() => navigate('/dashboard/services')}>
+                  Browse Services
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+        
+        {/* Subscription Status Side Panel */}
+        <div className="grid gap-6 md:grid-cols-3">
+          <div className="md:col-span-2">
+            {/* Extra content like announcements could go here */}
+          </div>
+          
+          <div className="bg-[#121a2e] rounded-lg p-6 border border-[#2a3347]">
+            <h2 className="text-xl font-bold mb-4">Subscription Status</h2>
+            <Badge className="bg-green-500 text-white mb-6">Active</Badge>
+            
+            <div className="flex items-center mb-4">
+              <Calendar className="h-5 w-5 mr-3 text-[#8a9cb0]" />
+              <div>
+                <p className="font-medium">29 days remaining</p>
+                <p className="text-sm text-[#8a9cb0]">Expires on 4/25/2025</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center mb-6">
+              <CreditCard className="h-5 w-5 mr-3 text-[#8a9cb0]" />
+              <div>
+                <p className="font-medium">Next payment</p>
+                <p className="text-sm text-[#8a9cb0]">4/25/2025</p>
+              </div>
+            </div>
+            
+            <div className="space-y-3">
+              <Button className="w-full" variant="outline">Contact Support</Button>
+              <Button className="w-full">Manage Plan</Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+type StatCardProps = {
+  title: string;
+  value: string;
+  icon: React.ReactNode;
+  iconBg: string;
+  subtext?: string;
+  statusIndicator?: React.ReactNode;
+};
+
+const StatCard: React.FC<StatCardProps> = ({ 
+  title, 
+  value, 
+  icon, 
+  iconBg,
+  subtext,
+  statusIndicator
+}) => {
+  return (
+    <div className="bg-[#121a2e] rounded-lg p-6 border border-[#2a3347]">
+      <div className="flex justify-between mb-4">
+        <h3 className="text-[#8a9cb0] font-medium">{title}</h3>
+        <div className={`${iconBg} p-3 rounded-lg`}>
+          {icon}
+        </div>
+      </div>
+      <div>
+        <p className="text-3xl font-bold mb-1">{value}</p>
+        {subtext && <p className="text-[#8a9cb0] text-sm">{subtext}</p>}
+        {statusIndicator && <div className="text-xs mt-1">{statusIndicator}</div>}
+      </div>
+    </div>
+  );
+};
+
+type ServiceCardProps = {
+  title: string;
+  description: string;
+  status: 'Active' | 'Inactive' | 'Pending';
+};
+
+const ServiceCard: React.FC<ServiceCardProps> = ({ title, description, status }) => {
+  return (
+    <div className="bg-[#121a2e] rounded-lg p-6 border border-[#2a3347]">
+      <div className="flex justify-between items-start mb-4">
+        <h3 className="text-xl font-semibold">{title}</h3>
+        <Badge className={status === 'Active' ? 'bg-green-500' : 'bg-amber-500'}>
+          {status}
+        </Badge>
+      </div>
+      <p className="text-[#8a9cb0] mb-4 line-clamp-2">{description}</p>
+      
+      {status === 'Active' && (
+        <div className="flex items-center text-[#8a9cb0]">
+          <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
+          <span className="text-sm">Professional website creation with reliable hosting solutions.</span>
+        </div>
+      )}
     </div>
   );
 };

@@ -9,7 +9,8 @@ import {
   CreditCard, 
   HelpCircle,
   LogOut,
-  User
+  User,
+  Moon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import LogoutButton from '@/components/common/LogoutButton';
@@ -61,35 +62,12 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
   ];
   
   return (
-    <div className={cn("flex flex-col w-64 h-full border-r bg-card", className)}>
+    <div className={cn("flex flex-col w-64 h-full border-r border-[#2a3347] bg-[#0f1523]", className)}>
       {/* Logo */}
-      <div className="px-6 py-5 flex items-center h-16 border-b">
+      <div className="px-6 py-5 flex items-center h-16 border-b border-[#2a3347]">
         <NavLink to="/dashboard" className="flex items-center">
-          <span className="text-xl font-bold">Prime Dashboard</span>
+          <span className="text-xl font-bold">Savannah Prime</span>
         </NavLink>
-      </div>
-      
-      {/* User Profile */}
-      <div className="p-4 border-b">
-        <div className="flex items-center space-x-3">
-          <div className="flex-shrink-0 h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-            {currentUser?.email ? (
-              <span className="text-sm font-medium text-primary">
-                {currentUser.email.charAt(0).toUpperCase()}
-              </span>
-            ) : (
-              <User className="h-5 w-5 text-primary" />
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">
-              {currentUser?.email || 'User'}
-            </p>
-            <p className="text-xs text-muted-foreground truncate">
-              Client
-            </p>
-          </div>
-        </div>
       </div>
       
       {/* Navigation Items */}
@@ -106,8 +84,8 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
                 cn(
                   "flex items-center px-4 py-2 text-sm rounded-md transition-colors",
                   {
-                    "bg-primary text-primary-foreground": isActive,
-                    "text-muted-foreground hover:text-foreground hover:bg-muted": !isActive
+                    "bg-[#4086f4] text-white": isActive,
+                    "text-[#8a9cb0] hover:text-white hover:bg-[#172138]": !isActive
                   }
                 )
               }
@@ -119,15 +97,92 @@ const DashboardSidebar: React.FC<DashboardSidebarProps> = ({
         })}
       </nav>
       
-      {/* Logout Button */}
-      <div className="p-4 border-t">
-        <LogoutButton className="w-full justify-start" variant="ghost">
+      {/* My Account Section */}
+      <div className="px-4 py-2 mt-4">
+        <div className="text-[#8a9cb0] text-sm font-medium mb-2">My Account</div>
+        <NavLink 
+          to="/dashboard/settings/profile" 
+          className={({ isActive }) =>
+            cn(
+              "flex items-center px-4 py-2 text-sm rounded-md transition-colors",
+              {
+                "bg-[#4086f4] text-white": isActive,
+                "text-[#8a9cb0] hover:text-white hover:bg-[#172138]": !isActive
+              }
+            )
+          }
+        >
+          <User className="h-5 w-5 mr-3" />
+          Profile
+        </NavLink>
+        
+        <NavLink 
+          to="/dashboard/billing" 
+          className={({ isActive }) =>
+            cn(
+              "flex items-center px-4 py-2 text-sm rounded-md transition-colors",
+              {
+                "bg-[#4086f4] text-white": isActive,
+                "text-[#8a9cb0] hover:text-white hover:bg-[#172138]": !isActive
+              }
+            )
+          }
+        >
+          <CreditCard className="h-5 w-5 mr-3" />
+          Billing
+        </NavLink>
+        
+        <NavLink 
+          to="/dashboard/support" 
+          className={({ isActive }) =>
+            cn(
+              "flex items-center px-4 py-2 text-sm rounded-md transition-colors",
+              {
+                "bg-[#4086f4] text-white": isActive,
+                "text-[#8a9cb0] hover:text-white hover:bg-[#172138]": !isActive
+              }
+            )
+          }
+        >
+          <HelpCircle className="h-5 w-5 mr-3" />
+          Support
+        </NavLink>
+        
+        <button className="w-full flex items-center px-4 py-2 text-sm rounded-md text-[#8a9cb0] hover:text-white hover:bg-[#172138] transition-colors">
+          <Moon className="h-5 w-5 mr-3" />
+          Light Mode
+        </button>
+      </div>
+      
+      {/* User Profile & Logout Button */}
+      <div className="p-4 border-t border-[#2a3347]">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center">
+            <div className="h-10 w-10 rounded-full bg-[#4086f4] flex items-center justify-center text-white font-medium">
+              {currentUser?.email ? currentUser.email.charAt(0).toUpperCase() : 'U'}
+            </div>
+            <div className="ml-3">
+              <p className="text-sm font-medium truncate max-w-[120px]">
+                {currentUser?.email?.split('@')[0] || '2206120'}
+              </p>
+              <Badge className="mt-1 bg-[#4086f4] text-white">client</Badge>
+            </div>
+          </div>
+          <button className="text-[#8a9cb0] hover:text-white">
+            <ChevronDown className="h-5 w-5" />
+          </button>
+        </div>
+        
+        <LogoutButton className="w-full justify-start" variant="outline">
           <LogOut className="h-5 w-5 mr-3" />
-          <span>Logout</span>
+          <span>Log Out</span>
         </LogoutButton>
       </div>
     </div>
   );
 };
+
+// Add the missing ChevronDown icon import
+import { ChevronDown } from "lucide-react";
 
 export default DashboardSidebar;

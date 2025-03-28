@@ -9,7 +9,7 @@ import { useAdminAuth } from '@/contexts/AdminAuthContext';
 
 interface LogoutButtonProps {
   isAdminLogout?: boolean;
-  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
+  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link' | 'success' | 'warning';
   size?: 'default' | 'sm' | 'lg' | 'icon';
   className?: string;
   children?: React.ReactNode;
@@ -27,25 +27,32 @@ const LogoutButton: React.FC<LogoutButtonProps> = ({
   const { logout: clientLogout } = useAuth();
   const { logout: adminLogout } = useAdminAuth();
   
-  const handleLogout = async () => {
+  const handleLogout = () => {
     if (isLoggingOut) return; // Prevent multiple clicks
     
+    setIsLoggingOut(true);
+    
     try {
-      setIsLoggingOut(true);
-      
       // Navigate immediately to reduce perceived delay
       if (isAdminLogout) {
-        // Start logout process but don't await
-        adminLogout();
         navigate('/admin/login');
+        // Perform logout after navigation starts
+        setTimeout(() => {
+          adminLogout().finally(() => {
+            setIsLoggingOut(false);
+            toast.success('Successfully logged out');
+          });
+        }, 0);
       } else {
-        // Start logout process but don't await
-        clientLogout();
         navigate('/login');
+        // Perform logout after navigation starts
+        setTimeout(() => {
+          clientLogout().finally(() => {
+            setIsLoggingOut(false);
+            toast.success('Successfully logged out');
+          });
+        }, 0);
       }
-      
-      // Show success toast after navigation has started
-      toast.success('Successfully logged out');
     } catch (error) {
       console.error('Logout error:', error);
       toast.error('Failed to log out. Please try again.');
