@@ -292,7 +292,9 @@ export const exportFinancialReport = async (
       // Add rows
       data.forEach(item => {
         csvContent += `${item.id},`;
-        csvContent += `"${item.clients?.name || 'Unknown'}",`;
+        // Fix: Access clients object correctly, checking if it exists
+        const clientName = item.clients ? item.clients.name || 'Unknown' : 'Unknown';
+        csvContent += `"${clientName}",`;
         csvContent += `${item.amount},`;
         csvContent += `${new Date(item.date).toLocaleDateString()},`;
         csvContent += `${item.status},`;

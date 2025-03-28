@@ -50,12 +50,16 @@ export const fetchMessageThreads = async (): Promise<MessageThread[]> => {
       
       if (messageError) throw messageError;
       
+      // Ensure sender is either 'client' or 'admin'
       const messages = messageData.map(msg => ({
         id: msg.id,
-        sender: msg.sender === 'client' ? 'client' : 'admin',
+        sender: msg.sender === 'client' ? 'client' : 'admin' as 'client' | 'admin',
         content: msg.content,
         timestamp: msg.timestamp
       }));
+      
+      // Fix: Access clients object correctly
+      const client = thread.clients || {};
       
       return {
         id: thread.id,
@@ -64,10 +68,10 @@ export const fetchMessageThreads = async (): Promise<MessageThread[]> => {
         date: thread.date,
         unread: thread.unread,
         client: {
-          id: thread.clients.id,
-          name: thread.clients.name,
-          email: thread.clients.email,
-          avatar: thread.clients.profile_image || `https://ui-avatars.com/api/?name=${encodeURIComponent(thread.clients.name)}&background=6366f1&color=fff`
+          id: client.id || '',
+          name: client.name || 'Unknown',
+          email: client.email || '',
+          avatar: client.profile_image || `https://ui-avatars.com/api/?name=${encodeURIComponent(client.name || 'Unknown')}&background=6366f1&color=fff`
         },
         messages
       };
