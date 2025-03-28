@@ -1,133 +1,46 @@
 
-import { LucideIcon } from "lucide-react";
-
-export type NavItem = {
-	title: string;
-	href: string;
-	disabled?: boolean;
-	external?: boolean;
-};
-
-export type SidebarNavItem = {
-	title: string;
-	disabled?: boolean;
-	external?: boolean;
-	icon?: LucideIcon;
-} & (
-	| {
-			href: string;
-			items?: never;
-	  }
-	| {
-			href?: string;
-			items: NavLink[];
-	  }
-);
-
-export type NavLink = {
-	title: string;
-	href: string;
-	disabled?: boolean;
-	external?: boolean;
-};
-
-export type SiteConfig = {
-	name: string;
-	description: string;
-	url: string;
-	ogImage: string;
-	links: {
-		twitter: string;
-		github: string;
-	};
-};
-
-export type DocsConfig = {
-	mainNav: NavItem[];
-	sidebarNav: SidebarNavItem[];
-};
-
-export type MarketingConfig = {
-	mainNav: NavItem[];
-};
-
-type IconType = LucideIcon;
-
-// Define the structure for the service options
-export interface ServiceOption {
+export interface NotificationType {
   id: string;
   title: string;
-  description: string;
-  price: number;
-  priceUnit: string;
-  features: string[];
-  category?: string;
-  icon?: IconType;  // Make icon optional
-  name?: string;    // Add name field for Supabase compatibility
-}
-
-export interface Transaction {
-  id: string;
-  client_id: string;
-  amount: number;
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'error';
+  read: boolean;
   date: string;
-  status: string;
-  service_name: string;
 }
 
-// Payment Type interface
 export interface PaymentType {
   id: string;
-  client_id: string;
   amount: number;
-  status: string;
+  date: string;
+  status: 'completed' | 'pending' | 'failed';
   method: string;
   description: string;
-  date: string;
-  type: string;
-  invoice_number?: string;
 }
 
-// Support Ticket interface
 export interface SupportTicket {
   id: string;
   subject: string;
-  message: string;
-  status: string;
-  priority: string;
+  message?: string; // Making message optional to match current implementation
+  status: 'open' | 'in-progress' | 'resolved' | 'closed';
+  priority: 'low' | 'medium' | 'high';
   createdAt: string;
   lastUpdated: string;
 }
 
-// Component props interfaces
-export interface StatCardProps {
-  title: string;
-  value: string;
+export interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  amount: number;
+  date: string;
+  dueDate: string;
+  status: 'paid' | 'unpaid' | 'overdue';
+  items: InvoiceItem[];
+}
+
+export interface InvoiceItem {
+  id: string;
   description: string;
-  icon?: React.ReactNode;
-  actionLabel?: string;
-  onAction?: () => void;
-  highlighted?: boolean;
-  change?: {
-    value: number;
-    isPositive: boolean;
-  };
-  subtitle?: string;
-}
-
-export interface ServiceCardProps {
-  service: ServiceOption;
-  onRemove: () => Promise<void>;
-  isUpdating?: boolean;
-  onDeactivate?: () => void;
-}
-
-export interface ServiceSelectionCardProps {
-  service: ServiceOption;
-  isSelected: boolean;
-  onToggle: () => Promise<void>;
-  isUpdating?: boolean;
-  isActive?: boolean;
-  onActivate?: () => void;
-  isLoading?: boolean;
+  quantity: number;
+  unitPrice: number;
+  total: number;
 }
