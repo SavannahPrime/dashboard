@@ -27,13 +27,21 @@ export const fetchTasks = async (): Promise<Task[]> => {
       description: task.description || '',
       status: task.status === 'todo' ? 'to-do' : task.status as any,
       priority: task.priority as any,
-      assignees: task.employees ? [
-        {
-          id: 1, // Will be replaced with actual ID from DB
-          name: task.employees.name || 'Unknown',
-          image: task.employees.profile_image || `https://ui-avatars.com/api/?name=${encodeURIComponent(task.employees.name || 'Unknown')}&background=6366f1&color=fff`
-        }
-      ] : [],
+      assignees: task.employees ? (
+        // Check if employees is an array and handle accordingly
+        Array.isArray(task.employees) ? 
+          task.employees.map((employee: any) => ({
+            id: 1, // Will be replaced with actual ID from DB
+            name: employee.name || 'Unknown',
+            image: employee.profile_image || `https://ui-avatars.com/api/?name=${encodeURIComponent(employee.name || 'Unknown')}&background=6366f1&color=fff`
+          })) : 
+          // Handle single employee object case
+          [{
+            id: 1, // Will be replaced with actual ID from DB
+            name: task.employees.name || 'Unknown',
+            image: task.employees.profile_image || `https://ui-avatars.com/api/?name=${encodeURIComponent(task.employees.name || 'Unknown')}&background=6366f1&color=fff`
+          }]
+      ) : [],
       dueDate: task.due_date,
       comments: 0, // Will be implemented with a separate comments table
       attachments: 0, // Will be implemented with a separate attachments table
