@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export type RefundStatus = 'pending' | 'approved' | 'denied' | 'completed';
@@ -44,7 +43,7 @@ export const fetchClientRefundRequests = async (clientId: string): Promise<Refun
       return {
         id: request.id,
         clientId: request.client_id,
-        clientName: typeof clientData.name === 'string' ? clientData.name : 'Unknown',
+        clientName: clientData && typeof clientData.name === 'string' ? clientData.name : 'Unknown',
         transactionId: '', // This would be linked in a real application
         amount: request.refund_amount || 0,
         reason: request.subject,
@@ -87,7 +86,7 @@ export const fetchAllRefundRequests = async (): Promise<RefundRequest[]> => {
       return {
         id: request.id,
         clientId: request.client_id,
-        clientName: typeof clientData.name === 'string' ? clientData.name : 'Unknown',
+        clientName: clientData && typeof clientData.name === 'string' ? clientData.name : 'Unknown',
         transactionId: '', // This would be linked in a real application
         amount: request.refund_amount || 0,
         reason: request.subject,

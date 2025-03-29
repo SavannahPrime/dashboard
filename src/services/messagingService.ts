@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export type MessageThread = {
@@ -64,10 +63,10 @@ export const fetchMessageThreads = async (): Promise<MessageThread[]> => {
       
       // Create safe client object with fallback values - ensuring all properties are properly typed
       const safeClient = {
-        id: typeof clientData.id === 'string' ? clientData.id : '',
-        name: typeof clientData.name === 'string' ? clientData.name : defaultName,
-        email: typeof clientData.email === 'string' ? clientData.email : '',
-        avatar: typeof clientData.profile_image === 'string' 
+        id: clientData && typeof clientData.id === 'string' ? clientData.id : '',
+        name: clientData && typeof clientData.name === 'string' ? clientData.name : defaultName,
+        email: clientData && typeof clientData.email === 'string' ? clientData.email : '',
+        avatar: clientData && typeof clientData.profile_image === 'string' 
           ? clientData.profile_image 
           : `https://ui-avatars.com/api/?name=${encodeURIComponent(defaultName)}&background=6366f1&color=fff`
       };

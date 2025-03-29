@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 export type RevenueData = {
@@ -175,7 +174,7 @@ export const fetchRecentTransactions = async (limit = 5): Promise<Transaction[]>
     if (error) throw error;
     
     return data.map(transaction => {
-      // Fix the type issue by treating clients as a single object and adding proper null checking
+      // Safely access client data with proper type checking
       const clientData = transaction.clients || {};
       
       return {
