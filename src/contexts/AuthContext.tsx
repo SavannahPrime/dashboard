@@ -15,6 +15,9 @@ export interface ClientUser {
   subscriptionStatus: string;
   profileImage?: string;
   role?: string;
+  subscriptionExpiry?: string;
+  phone?: string;
+  address?: string;
 }
 
 // Define the auth context interface
@@ -63,7 +66,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           status: data.status,
           subscriptionStatus: data.subscription_status,
           profileImage: data.profile_image,
-          role: data.role
+          role: data.role,
+          subscriptionExpiry: data.subscription_expiry,
+          phone: data.phone,
+          address: data.address
         };
         return clientUser;
       }

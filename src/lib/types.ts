@@ -1,4 +1,3 @@
-
 export interface NotificationType {
   id: string;
   title: string;
@@ -20,7 +19,7 @@ export interface PaymentType {
 export interface SupportTicket {
   id: string;
   subject: string;
-  message?: string; // Making message optional to match current implementation
+  message?: string;
   status: 'open' | 'in-progress' | 'resolved' | 'closed';
   priority: 'low' | 'medium' | 'high';
   createdAt: string;
@@ -103,13 +102,11 @@ export interface ClientUser {
   status: string;
   profileImage?: string;
   role?: string;
-  // Add missing properties that are being used
   subscriptionExpiry?: string;
   phone?: string;
   address?: string;
 }
 
-// Enhanced interfaces for Finance component
 export interface RevenueData {
   month: string;
   amount: number;
