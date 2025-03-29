@@ -54,8 +54,14 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ className, ...props }) => {
     setError('');
     
     try {
-      // Call the direct signUp function from supabase/auth.ts instead of using the context
-      const result = await signUp(values.email, values.password, values.name);
+      // Call the signUp function with all user details
+      const result = await signUp(
+        values.email, 
+        values.password, 
+        values.name,
+        values.phone,
+        values.address
+      );
       
       if (result.error) {
         throw new Error(result.error);
@@ -73,6 +79,12 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ className, ...props }) => {
     } catch (error: any) {
       console.error('Registration error:', error);
       setError(error.message || 'An unexpected error occurred during registration.');
+      
+      toast({
+        title: "Registration failed",
+        description: error.message || "There was a problem creating your account.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -150,7 +162,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ className, ...props }) => {
       </CardContent>
       <CardFooter>
         <Button disabled={isLoading} className="w-full" onClick={handleSubmit(onSignUp)}>
-          {isLoading ? 'Loading...' : 'Create account'}
+          {isLoading ? 'Creating account...' : 'Create account'}
         </Button>
       </CardFooter>
     </Card>

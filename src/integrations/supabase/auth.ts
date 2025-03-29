@@ -18,6 +18,18 @@ export const signUp = async (
   address?: string
 ): Promise<AuthResult> => {
   try {
+    // First, check if a user with this email already exists
+    const { data: existingUsers } = await supabase
+      .from('clients')
+      .select('email')
+      .eq('email', email)
+      .maybeSingle();
+    
+    if (existingUsers) {
+      return { error: 'A user with this email already exists' };
+    }
+
+    // Proceed with signup
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -31,31 +43,39 @@ export const signUp = async (
     });
 
     if (error) {
+      console.error('Auth signup error:', error);
       return { error: error.message };
     }
 
     // After successful signup, create a profile record
     if (data.user) {
-      // Note: This might not be needed if you have DB triggers set up
-      const { error: profileError } = await supabase
-        .from('clients')
-        .insert({
+      try {
+        // Create default values for any missing fields
+        const defaultName = name || email.split('@')[0];
+        const userProfile = {
           id: data.user.id,
-          name: name || '',
+          name: defaultName,
           email: email,
           selected_services: [],
           status: 'active',
           subscription_status: 'active',
-          profile_image: `https://ui-avatars.com/api/?name=${name?.replace(' ', '+') || 'user'}&background=6366f1&color=fff`,
-          subscription_expiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // Default 30 days trial
+          profile_image: `https://ui-avatars.com/api/?name=${defaultName.replace(' ', '+')}&background=6366f1&color=fff`,
+          subscription_expiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
           phone: phone || '',
           address: address || '',
           created_at: new Date().toISOString(),
-        });
+        };
 
-      if (profileError) {
-        console.error('Error creating profile:', profileError);
-        // We don't return this error as it would prevent login
+        const { error: profileError } = await supabase
+          .from('clients')
+          .insert(userProfile);
+
+        if (profileError) {
+          console.error('Error creating profile:', profileError);
+          // We log the error but don't return it as it would prevent login
+        }
+      } catch (profileErr) {
+        console.error('Profile creation exception:', profileErr);
       }
     }
 
