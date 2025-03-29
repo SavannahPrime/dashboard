@@ -35,6 +35,7 @@ const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
   const { currentUser } = useAuth();
   const { currentAdmin } = useAdminAuth();
   const [activeRoles, setActiveRoles] = React.useState<UserRole[]>([]);
+  const [isOpen, setIsOpen] = React.useState(false);
 
   // Get role icon
   const getRoleIcon = (role: UserRole) => {
@@ -95,7 +96,10 @@ const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
   // Switch to a different role
   const switchToRole = (role: UserRole) => {
     // Exit if already active
-    if (getCurrentActiveSession() === role) return;
+    if (getCurrentActiveSession() === role) {
+      setIsOpen(false);
+      return;
+    }
     
     // Navigate to appropriate dashboard based on role
     switch (role) {
@@ -112,16 +116,18 @@ const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
         navigate('/dashboard');
         break;
     }
+    
+    setIsOpen(false);
   };
 
   // If no sessions, don't render
-  if (activeRoles.length === 0) return null;
+  if (activeRoles.length <= 0) return null;
 
   // If only one session, don't render switcher
   if (activeRoles.length === 1 && (activeRoles[0] === getCurrentActiveSession())) return null;
 
   return (
-    <Popover>
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>
         <Button variant={variant} className={`flex items-center space-x-1 ${className}`}>
           <Users className="h-4 w-4 mr-1" />
@@ -141,8 +147,8 @@ const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
           {activeRoles.map(role => {
             const isActive = getCurrentActiveSession() === role;
             const userName = role === 'client' 
-              ? currentUser?.name 
-              : currentAdmin?.name || 'Admin User';
+              ? (currentUser?.name || 'Client User') 
+              : (currentAdmin?.name || 'Admin User');
             
             return (
               <Button

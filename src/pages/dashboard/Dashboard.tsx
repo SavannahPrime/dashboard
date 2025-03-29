@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
@@ -20,6 +19,9 @@ const Dashboard: React.FC = () => {
     .map(title => getServiceByTitle(title))
     .filter(Boolean);
   
+  // Add safe access to the role property
+  const userRole = currentUser && 'role' in currentUser ? currentUser.role : 'client';
+
   return (
     <div className="animate-fade-in">
       <DashboardHeader pageTitle="Dashboard" />
@@ -29,7 +31,7 @@ const Dashboard: React.FC = () => {
         <div className="mb-8">
           <div className="flex items-center">
             <h2 className="text-3xl font-bold">Welcome back, {currentUser.name.split(' ')[0]}</h2>
-            <Badge className="ml-3">{currentUser.role}</Badge>
+            <Badge className="ml-3">{userRole}</Badge>
           </div>
           <p className="text-muted-foreground mt-1">
             Here's what's happening with your account today

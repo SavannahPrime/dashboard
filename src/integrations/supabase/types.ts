@@ -316,6 +316,50 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_methods: {
+        Row: {
+          card_type: string
+          client_id: string | null
+          created_at: string | null
+          expiry_month: string
+          expiry_year: string
+          id: string
+          is_default: boolean | null
+          last_four: string
+          updated_at: string | null
+        }
+        Insert: {
+          card_type: string
+          client_id?: string | null
+          created_at?: string | null
+          expiry_month: string
+          expiry_year: string
+          id?: string
+          is_default?: boolean | null
+          last_four: string
+          updated_at?: string | null
+        }
+        Update: {
+          card_type?: string
+          client_id?: string | null
+          created_at?: string | null
+          expiry_month?: string
+          expiry_year?: string
+          id?: string
+          is_default?: boolean | null
+          last_four?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_methods_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       services: {
         Row: {
           active: boolean | null

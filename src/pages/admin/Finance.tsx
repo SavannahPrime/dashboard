@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -15,7 +14,8 @@ import {
   fetchRecentTransactions, 
   fetchTransactionSummary,
   exportFinancialReport,
-  type Transaction
+  type Transaction,
+  type RevenueData
 } from '@/services/financialService';
 
 const Finance: React.FC = () => {
@@ -51,17 +51,16 @@ const Finance: React.FC = () => {
   
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
   
-  // Fetch all financial data
+  const [revenueSummary, setRevenueSummary] = useState<RevenueData | null>(null);
+  
   const fetchAllFinancialData = async () => {
     setIsLoading(true);
     try {
-      // Fetch revenue data
       const revenue = await fetchRevenueData();
       setRevenueData(revenue.byMonth);
       setTotalRevenue(revenue.total);
       setRevenueGrowth(revenue.growth);
       
-      // Fetch user stats
       const users = await fetchUserStats();
       setUserStats({
         total: users.total,
@@ -69,7 +68,6 @@ const Finance: React.FC = () => {
         growth: users.growth
       });
       
-      // Fetch transaction summary
       const summary = await fetchTransactionSummary();
       setTransactionSummary({
         completed: summary.completed,
@@ -77,9 +75,10 @@ const Finance: React.FC = () => {
         avgOrderValue: summary.avgOrderValue
       });
       
-      // Fetch recent transactions
       const transactions = await fetchRecentTransactions();
       setRecentTransactions(transactions);
+      
+      setRevenueSummary(revenue);
       
       toast.success('Financial data updated successfully');
     } catch (error) {
@@ -93,7 +92,6 @@ const Finance: React.FC = () => {
   useEffect(() => {
     fetchAllFinancialData();
     
-    // Set up auto-refresh every 5 minutes (300000ms)
     const intervalId = setInterval(() => {
       fetchAllFinancialData();
     }, 300000);
@@ -115,7 +113,6 @@ const Finance: React.FC = () => {
         return;
       }
       
-      // Create download link
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -123,7 +120,6 @@ const Finance: React.FC = () => {
       document.body.appendChild(a);
       a.click();
       
-      // Clean up
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       
@@ -134,7 +130,6 @@ const Finance: React.FC = () => {
     }
   };
   
-  // Helper function to get badge variant based on status
   const getBadgeVariant = (status: string) => {
     switch(status) {
       case 'completed':
@@ -147,7 +142,6 @@ const Finance: React.FC = () => {
     }
   };
   
-  // Helper function to format currency
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -155,6 +149,20 @@ const Finance: React.FC = () => {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     }).format(amount);
+  };
+  
+  const revenueDisplay = revenueSummary ? {
+    month: revenueSummary.month,
+    year: revenueSummary.year,
+    byMonthData: revenueSummary.byMonth || [],
+    total: revenueSummary.total || 0,
+    growth: revenueSummary.growth || 0
+  } : {
+    month: '',
+    year: 0,
+    byMonthData: [],
+    total: 0,
+    growth: 0
   };
   
   if (isLoading) {
@@ -223,17 +231,17 @@ const Finance: React.FC = () => {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalRevenue)}</div>
+            <div className="text-2xl font-bold">{formatCurrency(revenueDisplay.total)}</div>
             <div className="flex items-center pt-1">
-              {revenueGrowth >= 0 ? (
+              {revenueDisplay.growth >= 0 ? (
                 <>
                   <ArrowUpRight className="mr-1 h-4 w-4 text-green-500" />
-                  <span className="text-xs text-green-500 font-medium">+{revenueGrowth.toFixed(1)}%</span>
+                  <span className="text-xs text-green-500 font-medium">+{revenueDisplay.growth.toFixed(1)}%</span>
                 </>
               ) : (
                 <>
                   <ArrowDownRight className="mr-1 h-4 w-4 text-red-500" />
-                  <span className="text-xs text-red-500 font-medium">{revenueGrowth.toFixed(1)}%</span>
+                  <span className="text-xs text-red-500 font-medium">{revenueDisplay.growth.toFixed(1)}%</span>
                 </>
               )}
               <span className="text-xs text-muted-foreground ml-1">from last month</span>

@@ -8,13 +8,13 @@ import sessionManager from '@/lib/sessionManager';
 // Define client user interface
 export interface ClientUser {
   id: string;
-  email: string;
   name: string;
+  email: string;
+  selectedServices: string[];
   status: string;
   subscriptionStatus: string;
-  subscriptionExpiry?: string;
-  selectedServices?: string[];
   profileImage?: string;
+  role?: string;
 }
 
 // Define the auth context interface
@@ -57,13 +57,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (data) {
         const clientUser: ClientUser = {
           id: data.id,
-          email: data.email,
           name: data.name,
+          email: data.email,
+          selectedServices: data.selected_services,
           status: data.status,
           subscriptionStatus: data.subscription_status,
-          subscriptionExpiry: data.subscription_expiry,
-          selectedServices: data.selected_services,
-          profileImage: data.profile_image
+          profileImage: data.profile_image,
+          role: data.role
         };
         return clientUser;
       }

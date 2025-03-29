@@ -13,56 +13,35 @@ export type MessageThread = {
     email: string;
     avatar: string;
   };
-  messages: Message[];
+  messages?: Message[];
 };
 
 export type Message = {
   id: string;
-  sender: 'client' | 'admin';
   content: string;
   timestamp: string;
+  sender: 'admin' | 'client' | 'sales' | 'support';
+  senderId: string;
 };
 
+// Function to fetch message threads
 export const fetchMessageThreads = async (): Promise<MessageThread[]> => {
   try {
     const { data, error } = await supabase
       .from('communications')
       .select(`
-        id,
-        subject,
-        preview,
-        date,
-        unread,
-        client_id,
-        clients(id, name, email, profile_image)
+        *,
+        clients:client_id (*)
       `)
       .order('date', { ascending: false });
     
     if (error) throw error;
     
-    // Now fetch messages for each thread
-    const threadsWithMessages = await Promise.all((data || []).map(async thread => {
-      const { data: messageData, error: messageError } = await supabase
-        .from('communication_messages')
-        .select('*')
-        .eq('communication_id', thread.id)
-        .order('timestamp', { ascending: true });
-      
-      if (messageError) throw messageError;
-      
-      // Ensure sender is either 'client' or 'admin'
-      const messages = (messageData || []).map(msg => ({
-        id: msg.id,
-        sender: (msg.sender === 'client' ? 'client' : 'admin') as 'client' | 'admin',
-        content: msg.content,
-        timestamp: msg.timestamp
-      }));
-      
-      // Handle clientData safely to avoid TypeScript errors
+    return (data || []).map(thread => {
       const clientData = thread.clients || {};
-      const defaultName = 'Unknown';
+      const defaultName = 'Unknown Client';
       
-      // Create safe client object with fallback values - ensuring all properties are properly typed
+      // Create safe client object with fallback values
       const safeClient = {
         id: clientData && typeof clientData.id === 'string' ? clientData.id : '',
         name: clientData && typeof clientData.name === 'string' ? clientData.name : defaultName,
@@ -75,21 +54,158 @@ export const fetchMessageThreads = async (): Promise<MessageThread[]> => {
       return {
         id: thread.id,
         subject: thread.subject,
-        preview: thread.preview,
+        preview: thread.preview || 'No preview available',
         date: thread.date,
-        unread: thread.unread,
-        client: safeClient,
-        messages
+        unread: thread.unread || false,
+        client: safeClient
       };
-    }));
-    
-    return threadsWithMessages;
+    });
   } catch (error) {
     console.error('Error fetching message threads:', error);
     return [];
   }
 };
 
+// Function to fetch messages for a specific thread
+export const fetchMessages = async (threadId: string): Promise<Message[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('communication_messages')
+      .select('*')
+      .eq('communication_id', threadId)
+      .order('timestamp', { ascending: true });
+    
+    if (error) throw error;
+    
+    return (data || []).map(message => ({
+      id: message.id,
+      content: message.content,
+      timestamp: message.timestamp,
+      sender: message.sender as 'admin' | 'client' | 'sales' | 'support',
+      senderId: message.sender_id || ''
+    }));
+  } catch (error) {
+    console.error(`Error fetching messages for thread ${threadId}:`, error);
+    return [];
+  }
+};
+
+// Function to send a message
+export const sendMessage = async (
+  threadId: string,
+  content: string,
+  sender: 'admin' | 'client' | 'sales' | 'support',
+  senderId: string
+): Promise<Message | null> => {
+  try {
+    // Insert the message
+    const { data, error } = await supabase
+      .from('communication_messages')
+      .insert({
+        communication_id: threadId,
+        content,
+        sender,
+        sender_id: senderId
+      })
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    // Update the thread's preview and unread status
+    await supabase
+      .from('communications')
+      .update({
+        preview: content.substring(0, 100) + (content.length > 100 ? '...' : ''),
+        unread: sender === 'client', // Mark as unread only if sent by client
+        date: new Date().toISOString()
+      })
+      .eq('id', threadId);
+    
+    return {
+      id: data.id,
+      content: data.content,
+      timestamp: data.timestamp,
+      sender: data.sender as 'admin' | 'client' | 'sales' | 'support',
+      senderId: data.sender_id || ''
+    };
+  } catch (error) {
+    console.error('Error sending message:', error);
+    return null;
+  }
+};
+
+// Function to create a new message thread
+export const createThread = async (
+  clientId: string,
+  subject: string,
+  content: string,
+  sender: 'admin' | 'client' | 'sales' | 'support',
+  senderId: string
+): Promise<MessageThread | null> => {
+  try {
+    // First, get client data
+    const { data: clientData, error: clientError } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('id', clientId)
+      .single();
+    
+    if (clientError) throw clientError;
+    
+    // Then create the communication thread
+    const { data: threadData, error: threadError } = await supabase
+      .from('communications')
+      .insert({
+        client_id: clientId,
+        subject,
+        preview: content.substring(0, 100) + (content.length > 100 ? '...' : ''),
+        unread: sender === 'client' // Mark as unread only if sent by client
+      })
+      .select()
+      .single();
+    
+    if (threadError) throw threadError;
+    
+    // Then add the initial message
+    const { error: messageError } = await supabase
+      .from('communication_messages')
+      .insert({
+        communication_id: threadData.id,
+        content,
+        sender,
+        sender_id: senderId
+      });
+    
+    if (messageError) throw messageError;
+    
+    const defaultName = 'Unknown Client';
+    
+    // Create safe client object
+    const safeClient = {
+      id: clientId,
+      name: clientData && typeof clientData.name === 'string' ? clientData.name : defaultName,
+      email: clientData && typeof clientData.email === 'string' ? clientData.email : '',
+      avatar: clientData && typeof clientData.profile_image === 'string' 
+        ? clientData.profile_image 
+        : `https://ui-avatars.com/api/?name=${encodeURIComponent(defaultName)}&background=6366f1&color=fff`
+    };
+    
+    return {
+      id: threadData.id,
+      subject: threadData.subject,
+      preview: threadData.preview,
+      date: threadData.date,
+      unread: threadData.unread,
+      client: safeClient
+    };
+  } catch (error) {
+    console.error('Error creating message thread:', error);
+    return null;
+  }
+};
+
+// Function to mark a thread as read
 export const markThreadAsRead = async (threadId: string): Promise<boolean> => {
   try {
     const { error } = await supabase
@@ -101,131 +217,7 @@ export const markThreadAsRead = async (threadId: string): Promise<boolean> => {
     
     return true;
   } catch (error) {
-    console.error('Error marking thread as read:', error);
+    console.error(`Error marking thread ${threadId} as read:`, error);
     return false;
-  }
-};
-
-export const sendReply = async (
-  threadId: string, 
-  content: string, 
-  senderId: string
-): Promise<Message | null> => {
-  try {
-    // Add new message
-    const { data: messageData, error: messageError } = await supabase
-      .from('communication_messages')
-      .insert({
-        communication_id: threadId,
-        content,
-        sender: 'admin',
-        sender_id: senderId
-      })
-      .select()
-      .single();
-    
-    if (messageError) throw messageError;
-    
-    // Update preview in the thread
-    const { error: updateError } = await supabase
-      .from('communications')
-      .update({ 
-        preview: content,
-        date: new Date().toISOString() 
-      })
-      .eq('id', threadId);
-    
-    if (updateError) throw updateError;
-    
-    return {
-      id: messageData.id,
-      sender: 'admin',
-      content: messageData.content,
-      timestamp: messageData.timestamp
-    };
-  } catch (error) {
-    console.error('Error sending reply:', error);
-    return null;
-  }
-};
-
-export const getMessageTemplates = async () => {
-  try {
-    const { data, error } = await supabase
-      .from('message_templates')
-      .select('*')
-      .order('name', { ascending: true });
-    
-    if (error) throw error;
-    
-    return data;
-  } catch (error) {
-    console.error('Error fetching message templates:', error);
-    return [];
-  }
-};
-
-export const createMessageTemplate = async (
-  name: string,
-  subject: string,
-  content: string
-) => {
-  try {
-    const { data, error } = await supabase
-      .from('message_templates')
-      .insert({
-        name,
-        subject,
-        content
-      })
-      .select();
-    
-    if (error) throw error;
-    
-    return data[0];
-  } catch (error) {
-    console.error('Error creating message template:', error);
-    return null;
-  }
-};
-
-export const createNewThread = async (
-  clientId: string,
-  subject: string,
-  content: string,
-  senderId: string
-): Promise<string | null> => {
-  try {
-    // Create the communication thread
-    const { data: threadData, error: threadError } = await supabase
-      .from('communications')
-      .insert({
-        client_id: clientId,
-        subject,
-        preview: content,
-        date: new Date().toISOString(),
-        unread: true
-      })
-      .select()
-      .single();
-    
-    if (threadError) throw threadError;
-    
-    // Add the initial message
-    const { error: messageError } = await supabase
-      .from('communication_messages')
-      .insert({
-        communication_id: threadData.id,
-        content,
-        sender: 'admin',
-        sender_id: senderId
-      });
-    
-    if (messageError) throw messageError;
-    
-    return threadData.id;
-  } catch (error) {
-    console.error('Error creating new message thread:', error);
-    return null;
   }
 };
