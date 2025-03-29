@@ -83,9 +83,18 @@ const Dashboard: React.FC = () => {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {userServices.slice(0, 4).map(service => (
-                <ServiceCard key={service!.id} service={service!} />
-              ))}
+              {userServices.length > 0 ? (
+                userServices.slice(0, 4).map(service => (
+                  <ServiceCard key={service!.id} service={service!} />
+                ))
+              ) : (
+                <div className="col-span-2 p-4 border rounded-lg bg-muted/20 text-center">
+                  <p>You don't have any active services. Visit the Services page to subscribe.</p>
+                  <Button variant="outline" className="mt-4" onClick={() => window.location.href = '/dashboard/services'}>
+                    Browse Services
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
           

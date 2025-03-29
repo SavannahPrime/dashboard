@@ -40,6 +40,12 @@ export const signUp = async (
           name: name || '',
           email: email,
           selected_services: [],
+          status: 'active',
+          subscription_status: 'active',
+          profile_image: `https://ui-avatars.com/api/?name=${name?.replace(' ', '+') || 'user'}&background=6366f1&color=fff`,
+          subscription_expiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // Default 30 days trial
+          phone: '',
+          address: '',
           created_at: new Date().toISOString(),
         });
 

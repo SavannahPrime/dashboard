@@ -18,6 +18,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -29,6 +30,8 @@ const formSchema = z.object({
   password: z.string().min(8, {
     message: 'Password must be at least 8 characters.',
   }),
+  phone: z.string().optional(),
+  address: z.string().optional(),
 });
 
 interface RegisterFormProps extends React.HTMLAttributes<HTMLDivElement> {}
@@ -38,6 +41,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ className, ...props }) => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { register: registerUser } = useAuth();
   
   const {
     register,
@@ -52,21 +56,21 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ className, ...props }) => {
     setError('');
     
     try {
-      const result = await signUp(values.email, values.password, values.name);
+      // Use the register function from AuthContext instead of the direct signUp function
+      await registerUser(values.email, values.password, values.name);
       
-      if (result.error) {
-        setError(result.error);
-      } else {
-        navigate('/login');
-        toast({
-          title: "Registration successful!",
-          description: "Please check your email to verify your account.",
-          variant: "default",
-        });
-      }
+      // Success message
+      toast({
+        title: "Registration successful!",
+        description: "Please check your email and login to your account.",
+        variant: "default",
+      });
+      
+      // Navigate to login page
+      navigate('/login');
     } catch (error: any) {
       console.error('Registration error:', error);
-      setError('An unexpected error occurred during registration.');
+      setError(error.message || 'An unexpected error occurred during registration.');
     } finally {
       setIsLoading(false);
     }
@@ -77,7 +81,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ className, ...props }) => {
       <CardHeader>
         <CardTitle>Create an account</CardTitle>
         <CardDescription>
-          Enter your email below to create your account
+          Enter your details below to create your account
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4">
@@ -122,11 +126,29 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ className, ...props }) => {
             <p className="text-sm text-red-500">{errors.password?.message}</p>
           )}
         </div>
+        <div className="grid gap-2">
+          <Label htmlFor="phone">Phone (Optional)</Label>
+          <Input
+            id="phone"
+            placeholder="Enter your phone number"
+            type="tel"
+            {...register('phone')}
+          />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="address">Address (Optional)</Label>
+          <Input
+            id="address"
+            placeholder="Enter your address"
+            type="text"
+            {...register('address')}
+          />
+        </div>
         {error && <p className="text-sm text-red-500">{error}</p>}
       </CardContent>
       <CardFooter>
         <Button disabled={isLoading} className="w-full" onClick={handleSubmit(onSignUp)}>
-          {isLoading ? 'Loading ...' : 'Create account'}
+          {isLoading ? 'Loading...' : 'Create account'}
         </Button>
       </CardFooter>
     </Card>

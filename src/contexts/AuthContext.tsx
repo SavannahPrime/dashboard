@@ -216,6 +216,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const createClientProfile = async (userId: string, email: string, name: string) => {
+    try {
+      const { error } = await supabase.from('clients').insert({
+        id: userId,
+        email,
+        name,
+        status: 'active',
+        subscription_status: 'active',
+        profile_image: `https://ui-avatars.com/api/?name=${name.replace(' ', '+')}&background=6366f1&color=fff`,
+        selected_services: [],
+        subscription_expiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // Default 30 days trial
+        phone: '',
+        address: ''
+      });
+      
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error creating client profile:', error);
+      toast.error('Failed to create profile');
+    }
+  };
+
   const register = async (email: string, password: string, name: string) => {
     setIsLoading(true);
     try {
@@ -232,22 +254,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) throw error;
       
       if (data.user) {
-        setUser(data.user);
+        // Create the client profile with all required fields
         await createClientProfile(data.user.id, email, name);
-        const profile = await fetchUserProfile(data.user.id);
-        if (profile) {
-          setCurrentUser(profile);
-          
-          // Store in sessionManager
-          sessionManager.storeSession(
-            'client',
-            data.user,
-            data.session?.access_token || null,
-            data.session?.refresh_token || null,
-            data.session?.expires_in
-          );
+        
+        // Only get the profile if needed for immediate login
+        if (data.session) {
+          setUser(data.user);
+          const profile = await fetchUserProfile(data.user.id);
+          if (profile) {
+            setCurrentUser(profile);
+            
+            // Store in sessionManager
+            sessionManager.storeSession(
+              'client',
+              data.user,
+              data.session?.access_token || null,
+              data.session?.refresh_token || null,
+              data.session?.expires_in
+            );
+          }
         }
-        toast.success('Registration successful! Welcome to Savannah Prime Agency.');
+        
+        toast.success('Registration successful! Please log in to your account.');
       }
     } catch (error) {
       console.error('Registration error:', error);
@@ -284,26 +312,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toast.error('Logout failed');
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  // Helper function to create a client profile
-  const createClientProfile = async (userId: string, email: string, name: string) => {
-    try {
-      const { error } = await supabase.from('clients').insert({
-        id: userId,
-        email,
-        name,
-        status: 'active',
-        subscription_status: 'active',
-        profile_image: `https://ui-avatars.com/api/?name=${name.replace(' ', '+')}&background=6366f1&color=fff`,
-        selected_services: []
-      });
-      
-      if (error) throw error;
-    } catch (error) {
-      console.error('Error creating client profile:', error);
-      toast.error('Failed to create profile');
     }
   };
 
