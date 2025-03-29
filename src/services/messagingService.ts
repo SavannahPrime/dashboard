@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export type MessageThread = {
@@ -40,7 +41,7 @@ export const fetchMessageThreads = async (): Promise<MessageThread[]> => {
     if (error) throw error;
     
     // Now fetch messages for each thread
-    const threadsWithMessages = await Promise.all(data.map(async thread => {
+    const threadsWithMessages = await Promise.all((data || []).map(async thread => {
       const { data: messageData, error: messageError } = await supabase
         .from('communication_messages')
         .select('*')
@@ -50,14 +51,14 @@ export const fetchMessageThreads = async (): Promise<MessageThread[]> => {
       if (messageError) throw messageError;
       
       // Ensure sender is either 'client' or 'admin'
-      const messages = messageData.map(msg => ({
+      const messages = (messageData || []).map(msg => ({
         id: msg.id,
         sender: (msg.sender === 'client' ? 'client' : 'admin') as 'client' | 'admin',
         content: msg.content,
         timestamp: msg.timestamp
       }));
       
-      // Fix: Create a safe client object with proper type checking and fallbacks
+      // Handle clientData safely to avoid TypeScript errors
       const clientData = thread.clients || {};
       const defaultName = 'Unknown';
       

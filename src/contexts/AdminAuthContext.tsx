@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Session, User } from '@supabase/supabase-js';
 import { Loader2 } from 'lucide-react';
+import sessionManager, { UserRole } from '@/lib/sessionManager';
 
 export type AdminRole = 'super_admin' | 'sales' | 'support';
 
@@ -58,6 +59,19 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           lastLogin: new Date().toISOString(),
           profileImage: data.profile_image
         };
+        
+        // Store in session manager
+        const role = adminUser.role === 'super_admin' ? 'admin' : adminUser.role;
+        if (session?.access_token && session?.refresh_token) {
+          sessionManager.storeSession(
+            role as UserRole, 
+            session.user, 
+            session.access_token,
+            session.refresh_token,
+            session.expires_in
+          );
+        }
+        
         return adminUser;
       }
       return null;
@@ -93,8 +107,11 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             }
           }, 0);
         } else {
-          setCurrentAdmin(null);
-          localStorage.removeItem(STORAGE_KEY);
+          // Don't clear currentAdmin if we're switching contexts, only if actually logging out
+          if (event === 'SIGNED_OUT') {
+            setCurrentAdmin(null);
+            localStorage.removeItem(STORAGE_KEY);
+          }
         }
       }
     );
@@ -102,6 +119,32 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     // THEN check for existing session
     const initAuth = async () => {
       try {
+        // First try to get admin session from session manager
+        let adminRole: UserRole = 'admin';
+        ['admin', 'sales', 'support'].forEach(role => {
+          if (sessionManager.hasValidSession(role as UserRole)) {
+            adminRole = role as UserRole;
+          }
+        });
+        
+        const storedSession = sessionManager.getSession(adminRole);
+        
+        if (storedSession?.user?.email) {
+          const adminUser = await fetchAdminProfile(storedSession.user.email);
+          if (adminUser) {
+            setCurrentAdmin(adminUser);
+            setSession({
+              user: storedSession.user,
+              access_token: storedSession.accessToken || '',
+              refresh_token: storedSession.refreshToken || '',
+              expires_in: storedSession.expiresAt ? (storedSession.expiresAt - Date.now()) / 1000 : 3600
+            } as Session);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(adminUser));
+            setIsInitializing(false);
+            return;
+          }
+        }
+        
         const { data: { session } } = await supabase.auth.getSession();
         setSession(session);
         
@@ -154,6 +197,18 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setCurrentAdmin(adminUser);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(adminUser));
       
+      // Store session in session manager
+      const role = adminUser.role === 'super_admin' ? 'admin' : adminUser.role;
+      if (authData.session?.access_token && authData.session?.refresh_token) {
+        sessionManager.storeSession(
+          role as UserRole,
+          authData.session.user,
+          authData.session.access_token,
+          authData.session.refresh_token,
+          authData.session.expires_in
+        );
+      }
+      
       let welcomeMessage = 'Welcome back';
       if (adminUser.role === 'super_admin') welcomeMessage += ', Super Admin!';
       else if (adminUser.role === 'sales') welcomeMessage += ', Sales Account!';
@@ -177,9 +232,15 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const logout = async () => {
     setIsLoading(true);
     try {
-      // Sign out from Supabase
-      await supabase.auth.signOut();
+      // Determine which role we're logging out
+      const role = currentAdmin?.role === 'super_admin' ? 'admin' : currentAdmin?.role as UserRole;
       
+      // Sign out from specific role session
+      if (role) {
+        sessionManager.clearSession(role);
+      }
+      
+      // Don't sign out from Supabase auth completely, only clear the current admin
       setCurrentAdmin(null);
       localStorage.removeItem(STORAGE_KEY);
       toast.info('You have been logged out');

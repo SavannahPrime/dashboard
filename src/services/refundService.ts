@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 
 export type RefundStatus = 'pending' | 'approved' | 'denied' | 'completed';
@@ -37,7 +38,8 @@ export const fetchClientRefundRequests = async (clientId: string): Promise<Refun
     
     if (error) throw error;
     
-    return data.map(request => {
+    return (data || []).map(request => {
+      // Safely handle potentially undefined client data
       const clientData = request.clients || {};
       
       return {
@@ -80,7 +82,8 @@ export const fetchAllRefundRequests = async (): Promise<RefundRequest[]> => {
     
     if (error) throw error;
     
-    return data.map(request => {
+    return (data || []).map(request => {
+      // Safely handle potentially undefined client data
       const clientData = request.clients || {};
       
       return {

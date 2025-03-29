@@ -1,125 +1,111 @@
 
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '@/contexts/AdminAuthContext';
-import { Button } from '@/components/ui/button';
-import { 
-  Bell, 
-  Search, 
-  Moon, 
-  Sun,
-  Menu
-} from 'lucide-react';
-import { 
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger
+  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Separator } from '@/components/ui/separator';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { useTheme } from '@/contexts/ThemeContext';
+import { Button } from '@/components/ui/button';
+import { Bell, Settings, HelpCircle, ChevronDown } from 'lucide-react';
+import LogoutButton from '@/components/common/LogoutButton';
+import SessionSwitcher from '@/components/common/SessionSwitcher';
 
 const AdminHeader: React.FC = () => {
-  const { currentAdmin, logout } = useAdminAuth();
-  const navigate = useNavigate();
-  const { theme, setTheme } = useTheme();
+  const { currentAdmin } = useAdminAuth();
+  const [notifications, setNotifications] = React.useState<any[]>([]);
+  
+  React.useEffect(() => {
+    // Simulate loading notifications
+    const demoNotifications = [
+      { id: 1, title: 'New client signup', read: false },
+      { id: 2, title: 'System update completed', read: true },
+      { id: 3, title: 'Ticket #1234 updated', read: false }
+    ];
+    
+    setNotifications(demoNotifications);
+  }, []);
+  
+  const unreadCount = notifications.filter(n => !n.read).length;
+  const initials = currentAdmin ? currentAdmin.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'A';
   
   return (
-    <header className="h-16 px-6 border-b border-border flex items-center justify-between bg-background">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" className="md:hidden">
-          <Menu className="h-5 w-5" />
-        </Button>
-        <div className="relative hidden md:flex items-center">
-          <Search className="absolute left-3 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search..."
-            className="pl-9 w-[300px] bg-muted/50"
-          />
-        </div>
+    <header className="sticky top-0 z-30 h-16 flex items-center justify-between border-b bg-background px-6">
+      <div className="flex items-center">
+        <h1 className="text-lg font-semibold">
+          {currentAdmin?.role === 'sales' ? 'Sales Dashboard' : 
+           currentAdmin?.role === 'support' ? 'Support Dashboard' : 
+           'Admin Dashboard'}
+        </h1>
       </div>
       
-      <div className="flex items-center gap-2">
-        <Button 
-          variant="ghost" 
-          size="icon"
-          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-        >
-          {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-        </Button>
+      <div className="flex items-center gap-4">
+        <SessionSwitcher />
         
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative">
-              <Bell className="h-5 w-5" />
-              <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0">
-                3
-              </Badge>
+            <Button variant="outline" size="sm" className="relative">
+              <Bell className="h-4 w-4" />
+              {unreadCount > 0 && (
+                <span className="absolute top-0 right-0 flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                </span>
+              )}
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80">
+          <DropdownMenuContent align="end" className="w-64">
             <DropdownMenuLabel>Notifications</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <div className="max-h-[300px] overflow-auto">
-              <DropdownMenuItem className="cursor-pointer flex flex-col items-start space-y-1">
-                <p className="font-medium">New user registered</p>
-                <p className="text-sm text-muted-foreground">Client: John Doe</p>
-                <p className="text-xs text-muted-foreground">2 minutes ago</p>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="cursor-pointer flex flex-col items-start space-y-1">
-                <p className="font-medium">Payment failed</p>
-                <p className="text-sm text-muted-foreground">Client: Sarah Smith</p>
-                <p className="text-xs text-muted-foreground">1 hour ago</p>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className="cursor-pointer flex flex-col items-start space-y-1">
-                <p className="font-medium">Support ticket opened</p>
-                <p className="text-sm text-muted-foreground">Ticket #12456</p>
-                <p className="text-xs text-muted-foreground">3 hours ago</p>
-              </DropdownMenuItem>
-            </div>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="cursor-pointer text-center text-primary" onClick={() => navigate('/admin/notifications')}>
-              View all notifications
-            </DropdownMenuItem>
+            {notifications.length > 0 ? (
+              <>
+                {notifications.map(notification => (
+                  <DropdownMenuItem key={notification.id} className={notification.read ? 'opacity-70' : 'font-medium'}>
+                    {!notification.read && <span className="mr-2 h-2 w-2 rounded-full bg-primary flex-shrink-0" />}
+                    {notification.title}
+                  </DropdownMenuItem>
+                ))}
+              </>
+            ) : (
+              <div className="text-center py-4 text-muted-foreground">
+                No notifications
+              </div>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
         
-        <Separator orientation="vertical" className="h-8" />
-        
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="flex items-center gap-2 px-2">
-              <div className="h-8 w-8 rounded-full overflow-hidden">
-                <img 
-                  src={currentAdmin?.profileImage || 'https://ui-avatars.com/api/?name=Admin+User'}
-                  alt="Admin avatar"
-                  className="h-full w-full object-cover"
-                />
+            <Button variant="ghost" className="relative h-9 flex items-center gap-2">
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={currentAdmin?.profileImage} alt={currentAdmin?.name || 'Admin'} />
+                <AvatarFallback>{initials}</AvatarFallback>
+              </Avatar>
+              <div className="flex flex-col items-start text-left hidden sm:flex">
+                <span className="text-sm font-medium">{currentAdmin?.name}</span>
+                <span className="text-xs text-muted-foreground capitalize">{currentAdmin?.role}</span>
               </div>
-              <div className="hidden md:block text-left">
-                <p className="text-sm font-medium">{currentAdmin?.name}</p>
-                <p className="text-xs text-muted-foreground">{currentAdmin?.role.replace('_', ' ')}</p>
-              </div>
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="cursor-pointer" onClick={() => navigate('/admin/profile')}>
-              Profile
+            <DropdownMenuItem>
+              <Settings className="mr-2 h-4 w-4" />
+              <span>Settings</span>
             </DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer" onClick={() => navigate('/admin/settings')}>
-              Settings
+            <DropdownMenuItem>
+              <HelpCircle className="mr-2 h-4 w-4" />
+              <span>Help & Support</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="cursor-pointer text-destructive" onClick={logout}>
-              Log out
+            <DropdownMenuItem>
+              <LogoutButton isAdminLogout variant="ghost" className="w-full justify-start p-0 h-auto" />
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

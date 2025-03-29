@@ -1,9 +1,8 @@
 import { supabase } from '@/integrations/supabase/client';
 
 export type RevenueData = {
-  total: number;
-  byMonth: { name: string; revenue: number }[];
-  growth: number;
+  month: string;
+  revenue: number;
 };
 
 export type UserStats = {
@@ -314,5 +313,39 @@ export const exportFinancialReport = async (
   } catch (error) {
     console.error(`Error exporting ${reportType} report:`, error);
     return null;
+  }
+};
+
+export const fetchTransactions = async (): Promise<any[]> => {
+  try {
+    const { data: clientsData, error: clientsError } = await supabase
+      .from('clients')
+      .select('id, name, email');
+    
+    if (clientsError) throw clientsError;
+    
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*')
+      .order('date', { ascending: false });
+    
+    if (error) throw error;
+    
+    return (data || []).map(transaction => {
+      // Safely access client data with proper type checking
+      const client = clientsData?.find(c => c.id === transaction.client_id) || {};
+      
+      return {
+        ...transaction,
+        client: {
+          id: client && typeof client.id === 'string' ? client.id : '',
+          name: client && typeof client.name === 'string' ? client.name : 'Unknown',
+          email: client && typeof client.email === 'string' ? client.email : ''
+        }
+      };
+    });
+  } catch (error) {
+    console.error('Error fetching transactions:', error);
+    return [];
   }
 };

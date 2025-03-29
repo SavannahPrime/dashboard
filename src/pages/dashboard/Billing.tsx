@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
@@ -54,7 +53,7 @@ const Billing: React.FC = () => {
       if (servicesData && currentUser) {
         // Format services
         const active = servicesData.filter(service => 
-          currentUser.selectedServices.includes(service.name)
+          currentUser.selectedServices && currentUser.selectedServices.includes(service.name)
         ).map(service => ({
           id: service.id,
           title: service.name,
@@ -79,16 +78,28 @@ const Billing: React.FC = () => {
         setPaymentHistory(transactionsData);
       }
       
-      // Fetch saved payment methods
-      const { data: paymentMethodsData, error: paymentMethodsError } = await supabase
-        .from('payment_methods')
-        .select('*')
-        .eq('client_id', currentUser?.id);
-        
-      if (paymentMethodsError) throw paymentMethodsError;
-      
-      if (paymentMethodsData) {
-        setSavedPaymentMethods(paymentMethodsData);
+      try {
+        // Fetch saved payment methods - handle the case if the table doesn't exist yet
+        const { data: paymentMethodsData, error: paymentMethodsError } = await supabase
+          .from('payment_methods')
+          .select('*')
+          .eq('client_id', currentUser?.id);
+          
+        if (paymentMethodsError) {
+          // If the error is about the table not existing, don't throw an error, just log it
+          if (paymentMethodsError.code === '42P01') {
+            console.log('Payment methods table does not exist yet. This is expected on first run.');
+            setSavedPaymentMethods([]);
+          } else {
+            throw paymentMethodsError;
+          }
+        } else {
+          setSavedPaymentMethods(paymentMethodsData || []);
+        }
+      } catch (paymentMethodError) {
+        console.error('Error fetching payment methods:', paymentMethodError);
+        // Don't set global error for this specific case to avoid disrupting the whole page
+        setSavedPaymentMethods([]);
       }
       
       // Fetch invoices
@@ -112,7 +123,7 @@ const Billing: React.FC = () => {
   };
   
   // Calculate monthly cost
-  const monthlyCost = activeServices.reduce((sum, service) => sum + service.price, 0);
+  const monthlyCost = activeServices.reduce((sum, service) => sum + (service.price || 0), 0);
   
   // Next billing date
   const nextBillingDate = currentUser?.subscriptionExpiry 
