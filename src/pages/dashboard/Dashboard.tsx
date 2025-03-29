@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
@@ -21,6 +22,11 @@ const Dashboard: React.FC = () => {
   
   // Add safe access to the role property
   const userRole = currentUser && 'role' in currentUser ? currentUser.role : 'client';
+  
+  // Safe access to subscription expiry with a fallback
+  const subscriptionExpiry = currentUser.subscriptionExpiry 
+    ? new Date(currentUser.subscriptionExpiry).toLocaleDateString()
+    : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString();
 
   return (
     <div className="animate-fade-in">
@@ -53,13 +59,13 @@ const Dashboard: React.FC = () => {
           />
           <StatCard
             title="Subscription Status"
-            value="Active"
+            value={currentUser.subscriptionStatus || "Active"}
             icon={<Clock className="h-5 w-5 text-primary" />}
             change={{ value: 0, isPositive: true }}
           />
           <StatCard
             title="Subscription Expiry"
-            value={new Date(currentUser.subscriptionExpiry).toLocaleDateString()}
+            value={subscriptionExpiry}
             icon={<Calendar className="h-5 w-5 text-primary" />}
           />
         </div>

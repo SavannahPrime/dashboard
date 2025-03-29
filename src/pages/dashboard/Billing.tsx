@@ -43,7 +43,6 @@ const Billing: React.FC = () => {
     setError(null);
     
     try {
-      // Fetch services
       const { data: servicesData, error: servicesError } = await supabase
         .from('services')
         .select('*');
@@ -51,7 +50,6 @@ const Billing: React.FC = () => {
       if (servicesError) throw servicesError;
       
       if (servicesData && currentUser) {
-        // Format services
         const active = servicesData.filter(service => 
           currentUser.selectedServices && currentUser.selectedServices.includes(service.name)
         ).map(service => ({
@@ -65,7 +63,6 @@ const Billing: React.FC = () => {
         setActiveServices(active);
       }
       
-      // Fetch payment history
       const { data: transactionsData, error: transactionsError } = await supabase
         .from('transactions')
         .select('*')
@@ -79,14 +76,12 @@ const Billing: React.FC = () => {
       }
       
       try {
-        // Fetch saved payment methods - handle the case if the table doesn't exist yet
         const { data: paymentMethodsData, error: paymentMethodsError } = await supabase
           .from('payment_methods')
           .select('*')
           .eq('client_id', currentUser?.id);
           
         if (paymentMethodsError) {
-          // If the error is about the table not existing, don't throw an error, just log it
           if (paymentMethodsError.code === '42P01') {
             console.log('Payment methods table does not exist yet. This is expected on first run.');
             setSavedPaymentMethods([]);
@@ -98,11 +93,9 @@ const Billing: React.FC = () => {
         }
       } catch (paymentMethodError) {
         console.error('Error fetching payment methods:', paymentMethodError);
-        // Don't set global error for this specific case to avoid disrupting the whole page
         setSavedPaymentMethods([]);
       }
       
-      // Fetch invoices
       const { data: invoicesData, error: invoicesError } = await supabase
         .from('invoices')
         .select('*')
@@ -122,10 +115,8 @@ const Billing: React.FC = () => {
     }
   };
   
-  // Calculate monthly cost
   const monthlyCost = activeServices.reduce((sum, service) => sum + (service.price || 0), 0);
   
-  // Next billing date
   const nextBillingDate = currentUser?.subscriptionExpiry 
     ? new Date(currentUser.subscriptionExpiry) 
     : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
@@ -139,14 +130,13 @@ const Billing: React.FC = () => {
     setShowPaymentDialog(false);
     setShowAddPaymentMethodDialog(false);
     setSelectedInvoice(null);
-    fetchData(); // Refresh data
+    fetchData();
   };
   
   const handleAddPaymentMethod = () => {
     setShowAddPaymentMethodDialog(true);
   };
   
-  // Default payment method display if none saved
   const defaultPaymentMethod = {
     type: 'card',
     details: 'No payment methods saved',
@@ -178,7 +168,6 @@ const Billing: React.FC = () => {
           
           <TabsContent value="subscription">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Left Column: Subscription Details */}
               <div className="lg:col-span-2">
                 <Card>
                   <CardHeader>
@@ -253,7 +242,6 @@ const Billing: React.FC = () => {
                 </Card>
               </div>
               
-              {/* Right Column: Active Services */}
               <div>
                 <Card>
                   <CardHeader>
@@ -470,7 +458,6 @@ const Billing: React.FC = () => {
         </Tabs>
       </div>
       
-      {/* Payment Dialog for invoices */}
       <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -497,7 +484,6 @@ const Billing: React.FC = () => {
         </DialogContent>
       </Dialog>
       
-      {/* Add Payment Method Dialog */}
       <Dialog open={showAddPaymentMethodDialog} onOpenChange={setShowAddPaymentMethodDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

@@ -1,3 +1,4 @@
+
 export interface NotificationType {
   id: string;
   title: string;
@@ -95,10 +96,54 @@ export interface Task {
 
 export interface ClientUser {
   id: string;
-  name?: string;
-  email?: string;
+  name: string;
+  email: string;
   selectedServices: string[];
-  subscriptionExpiry?: string | null;
-  phone?: string | null;
-  address?: string | null;
+  subscriptionStatus: string;
+  status: string;
+  profileImage?: string;
+  role?: string;
+  // Add missing properties that are being used
+  subscriptionExpiry?: string;
+  phone?: string;
+  address?: string;
+}
+
+// Enhanced interfaces for Finance component
+export interface RevenueData {
+  month: string;
+  amount: number;
+  name?: string;
+  revenue?: number;
+  year?: number;
+  total?: number;
+  growth?: number;
+  byMonth?: { name: string; revenue: number; }[];
+}
+
+export interface FinancialSummary {
+  totalRevenue: number;
+  totalClients: number;
+  averageRevenue: number;
+  byMonth: { name: string; revenue: number; }[];
+  total: number;
+  growth: number;
+  completed?: number;
+  failed?: number;
+  avgOrderValue?: number;
+}
+
+export interface TransactionSummary {
+  completed: number;
+  failed: number;
+  avgOrderValue: number;
+}
+
+export interface UserStats {
+  total: number;
+  active: number;
+  growth: number;
+  totalUsers?: number;
+  activeUsers?: number;
+  newUsersThisMonth?: number;
 }
