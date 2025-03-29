@@ -1,11 +1,31 @@
 
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import RegisterForm from '@/components/auth/RegisterForm';
-import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useState, useEffect } from 'react';
 
 const Register: React.FC = () => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    // Check if the user is already authenticated
+    const checkAuth = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        setIsAuthenticated(!!data.session);
+      } catch (error) {
+        console.error('Error checking authentication:', error);
+        setIsAuthenticated(false);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    checkAuth();
+  }, []);
   
   // Show loading state
   if (isLoading) {
@@ -20,7 +40,7 @@ const Register: React.FC = () => {
   }
   
   // Redirect if already authenticated
-  if (isAuthenticated && !isLoading) {
+  if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;
   }
   

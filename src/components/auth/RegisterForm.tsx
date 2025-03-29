@@ -18,7 +18,6 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -41,7 +40,6 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ className, ...props }) => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { register: registerUser } = useAuth();
   
   const {
     register,
@@ -56,8 +54,12 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ className, ...props }) => {
     setError('');
     
     try {
-      // Use the register function from AuthContext instead of the direct signUp function
-      await registerUser(values.email, values.password, values.name);
+      // Call the direct signUp function from supabase/auth.ts instead of using the context
+      const result = await signUp(values.email, values.password, values.name);
+      
+      if (result.error) {
+        throw new Error(result.error);
+      }
       
       // Success message
       toast({

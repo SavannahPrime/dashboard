@@ -13,7 +13,9 @@ export interface AuthResult {
 export const signUp = async (
   email: string, 
   password: string, 
-  name?: string
+  name?: string,
+  phone?: string,
+  address?: string
 ): Promise<AuthResult> => {
   try {
     const { data, error } = await supabase.auth.signUp({
@@ -22,6 +24,8 @@ export const signUp = async (
       options: {
         data: {
           name,
+          phone,
+          address,
         },
       },
     });
@@ -44,8 +48,8 @@ export const signUp = async (
           subscription_status: 'active',
           profile_image: `https://ui-avatars.com/api/?name=${name?.replace(' ', '+') || 'user'}&background=6366f1&color=fff`,
           subscription_expiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // Default 30 days trial
-          phone: '',
-          address: '',
+          phone: phone || '',
+          address: address || '',
           created_at: new Date().toISOString(),
         });
 
