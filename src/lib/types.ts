@@ -1,4 +1,3 @@
-
 export interface NotificationType {
   id: string;
   title: string;
@@ -92,4 +91,14 @@ export interface Task {
   attachments: number;
   department: string;
   created: string;
+}
+
+export interface ClientUser {
+  id: string;
+  name?: string;
+  email?: string;
+  selectedServices: string[];
+  subscriptionExpiry?: string | null;
+  phone?: string | null;
+  address?: string | null;
 }

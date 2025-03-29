@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -31,12 +32,14 @@ const formSchema = z.object({
   address: z.string().optional(),
 })
 
+type FormValues = z.infer<typeof formSchema>;
+
 const Settings: React.FC = () => {
   const { currentUser } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast()
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: currentUser?.name || "",
@@ -50,15 +53,15 @@ const Settings: React.FC = () => {
   useEffect(() => {
     if (currentUser) {
       form.reset({
-        name: currentUser.name || "",
-        email: currentUser.email || "",
-        phone: currentUser.phone || "",
-        address: currentUser.address || "",
+        name: currentUser?.name || "",
+        email: currentUser?.email || "",
+        phone: currentUser?.phone || "",
+        address: currentUser?.address || "",
       });
     }
   }, [currentUser, form]);
 
-  const handleUpdateProfile = async (values: FormData) => {
+  const handleUpdateProfile = async (values: FormValues) => {
     setIsLoading(true);
     try {
       const { error } = await supabase

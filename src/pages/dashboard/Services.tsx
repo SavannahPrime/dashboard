@@ -68,11 +68,11 @@ const Services: React.FC = () => {
       if (currentUser) {
         // Split into active and available services
         const active = formattedServices.filter(service => 
-          currentUser.selectedServices.includes(service.title)
+          currentUser.selectedServices && currentUser.selectedServices.includes(service.title)
         );
         
         const available = formattedServices.filter(service => 
-          !currentUser.selectedServices.includes(service.title)
+          !currentUser.selectedServices || !currentUser.selectedServices.includes(service.title)
         );
         
         setActiveServices(active);
@@ -146,7 +146,7 @@ const Services: React.FC = () => {
                   <ServiceSelectionCard 
                     key={service.id} 
                     service={service} 
-                    isActive={false} 
+                    isSelected={false} 
                   />
                 ))}
               </div>

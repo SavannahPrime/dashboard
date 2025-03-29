@@ -1,310 +1,155 @@
 
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
-export type RefundStatus = 'pending' | 'approved' | 'denied' | 'completed';
-
-export type RefundRequest = {
+// This interface defines the expected properties for a refund request
+export interface RefundRequest {
   id: string;
-  clientId: string;
-  clientName: string;
-  transactionId: string;
-  amount: number;
+  client_id: string;
+  transaction_id: string;
   reason: string;
-  status: RefundStatus;
-  createdAt: string;
-  updatedAt: string;
-  notes?: string;
-  approvedBy?: string;
-};
+  amount: number;
+  status: 'pending' | 'approved' | 'denied';
+  created_at: string;
+  client?: {
+    name?: string;
+    email?: string;
+  } | null;
+}
 
-export const fetchClientRefundRequests = async (clientId: string): Promise<RefundRequest[]> => {
-  try {
-    const { data, error } = await supabase
-      .from('tickets')
-      .select(`
-        id,
-        client_id,
-        subject,
-        refund_amount,
-        refund_service,
-        status,
-        created_at,
-        updated_at,
-        clients(name)
-      `)
-      .eq('client_id', clientId)
-      .not('refund_amount', 'is', null)
-      .order('created_at', { ascending: false });
-    
-    if (error) throw error;
-    
-    return (data || []).map(request => {
-      // Safely handle potentially undefined client data
-      const clientData = request.clients || {};
-      
-      return {
-        id: request.id,
-        clientId: request.client_id,
-        clientName: clientData && typeof clientData.name === 'string' ? clientData.name : 'Unknown',
-        transactionId: '', // This would be linked in a real application
-        amount: request.refund_amount || 0,
-        reason: request.subject,
-        status: mapTicketStatusToRefundStatus(request.status),
-        createdAt: request.created_at,
-        updatedAt: request.updated_at,
-        notes: ''
-      };
-    });
-  } catch (error) {
-    console.error('Error fetching client refund requests:', error);
-    return [];
+// Function to fetch all refund requests
+export const fetchRefundRequests = async (): Promise<RefundRequest[]> => {
+  const { data, error } = await supabase
+    .from('refund_requests')
+    .select(`
+      *,
+      client:client_id (
+        name, 
+        email
+      )
+    `)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching refund requests:', error);
+    throw error;
   }
+
+  // Process the data to handle potential null clients
+  const processedData = data.map(item => ({
+    ...item,
+    client: item.client || { name: 'Unknown', email: 'Unknown' }
+  }));
+
+  return processedData;
 };
 
-export const fetchAllRefundRequests = async (): Promise<RefundRequest[]> => {
+// Function to approve a refund request
+export const approveRefund = async (refundId: string): Promise<void> => {
   try {
-    const { data, error } = await supabase
-      .from('tickets')
+    // First get the refund request details
+    const { data: refundData, error: refundError } = await supabase
+      .from('refund_requests')
       .select(`
-        id,
-        client_id,
-        subject,
-        refund_amount,
-        refund_service,
-        status,
-        created_at,
-        updated_at,
-        assigned_to,
-        clients(name)
+        *,
+        client:client_id (
+          name
+        )
       `)
-      .not('refund_amount', 'is', null)
-      .order('created_at', { ascending: false });
-    
-    if (error) throw error;
-    
-    return (data || []).map(request => {
-      // Safely handle potentially undefined client data
-      const clientData = request.clients || {};
-      
-      return {
-        id: request.id,
-        clientId: request.client_id,
-        clientName: clientData && typeof clientData.name === 'string' ? clientData.name : 'Unknown',
-        transactionId: '', // This would be linked in a real application
-        amount: request.refund_amount || 0,
-        reason: request.subject,
-        status: mapTicketStatusToRefundStatus(request.status),
-        createdAt: request.created_at,
-        updatedAt: request.updated_at,
-        notes: '',
-        approvedBy: request.assigned_to
-      };
-    });
-  } catch (error) {
-    console.error('Error fetching all refund requests:', error);
-    return [];
-  }
-};
-
-export const createRefundRequest = async (
-  clientId: string, 
-  amount: number, 
-  reason: string,
-  serviceId?: string
-): Promise<string | null> => {
-  try {
-    const { data, error } = await supabase
-      .from('tickets')
-      .insert({
-        client_id: clientId,
-        subject: reason,
-        refund_amount: amount,
-        refund_service: serviceId,
-        status: 'open',
-        priority: 'high',
-        category: 'refund'
-      })
-      .select()
+      .eq('id', refundId)
       .single();
-    
-    if (error) throw error;
-    
-    return data.id;
+
+    if (refundError) throw refundError;
+
+    // Update the refund status
+    const { error: updateError } = await supabase
+      .from('refund_requests')
+      .update({ status: 'approved' })
+      .eq('id', refundId);
+
+    if (updateError) throw updateError;
+
+    // Create a transaction record for this refund
+    const { error: transactionError } = await supabase
+      .from('transactions')
+      .insert({
+        client_id: refundData.client_id,
+        amount: -refundData.amount, // Negative amount for refund
+        description: `Refund for ${refundData.reason}`,
+        transaction_type: 'refund',
+        status: 'completed',
+        reference_id: refundId
+      });
+
+    if (transactionError) throw transactionError;
+
+    const clientName = refundData.client && refundData.client.name ? refundData.client.name : 'Unknown client';
+    toast.success(`Refund approved for ${clientName}`);
   } catch (error) {
-    console.error('Error creating refund request:', error);
-    return null;
+    console.error('Error approving refund:', error);
+    toast.error('Failed to approve refund');
+    throw error;
   }
 };
 
-export const updateRefundStatus = async (
-  refundId: string, 
-  status: RefundStatus, 
-  adminId: string, 
-  notes?: string
-): Promise<boolean> => {
+// Function to deny a refund request
+export const denyRefund = async (refundId: string): Promise<void> => {
+  try {
+    // First get the refund request details
+    const { data: refundData, error: refundError } = await supabase
+      .from('refund_requests')
+      .select(`
+        *,
+        client:client_id (
+          name
+        )
+      `)
+      .eq('id', refundId)
+      .single();
+
+    if (refundError) throw refundError;
+
+    // Update the refund status
+    const { error: updateError } = await supabase
+      .from('refund_requests')
+      .update({ status: 'denied' })
+      .eq('id', refundId);
+
+    if (updateError) throw updateError;
+
+    const clientName = refundData.client && refundData.client.name ? refundData.client.name : 'Unknown client';
+    toast.success(`Refund denied for ${clientName}`);
+  } catch (error) {
+    console.error('Error denying refund:', error);
+    toast.error('Failed to deny refund');
+    throw error;
+  }
+};
+
+// Function to create a new refund request
+export const createRefundRequest = async (
+  clientId: string,
+  transactionId: string,
+  reason: string,
+  amount: number
+): Promise<void> => {
   try {
     const { error } = await supabase
-      .from('tickets')
-      .update({
-        status: mapRefundStatusToTicketStatus(status),
-        assigned_to: adminId,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', refundId);
-    
+      .from('refund_requests')
+      .insert({
+        client_id: clientId,
+        transaction_id: transactionId,
+        reason,
+        amount,
+        status: 'pending'
+      });
+
     if (error) throw error;
-    
-    // If approved or denied, add a message with the notes
-    if (status === 'approved' || status === 'denied' || status === 'completed') {
-      const { error: messageError } = await supabase
-        .from('ticket_messages')
-        .insert({
-          ticket_id: refundId,
-          sender: 'admin',
-          content: notes || `Refund request ${status}`,
-          timestamp: new Date().toISOString()
-        });
-      
-      if (messageError) throw messageError;
-      
-      // If approved, create a refund transaction
-      if (status === 'completed') {
-        const { data: ticketData } = await supabase
-          .from('tickets')
-          .select('client_id, refund_amount, refund_service')
-          .eq('id', refundId)
-          .single();
-        
-        if (ticketData) {
-          const { error: transactionError } = await supabase
-            .from('transactions')
-            .insert({
-              client_id: ticketData.client_id,
-              amount: ticketData.refund_amount,
-              type: 'refund',
-              status: 'completed',
-              description: `Refund for service: ${ticketData.refund_service || 'Unknown'}`
-            });
-          
-          if (transactionError) throw transactionError;
-        }
-      }
-    }
-    
-    return true;
+
+    toast.success('Refund request submitted successfully');
   } catch (error) {
-    console.error('Error updating refund status:', error);
-    return false;
-  }
-};
-
-export const getRefundAnalytics = async (): Promise<{
-  totalRefunds: number;
-  totalAmount: number;
-  byMonth: { name: string, amount: number }[];
-  mostRefundedServices: { name: string, count: number }[];
-}> => {
-  try {
-    const { data: refundTransactions, error } = await supabase
-      .from('transactions')
-      .select('amount, date, description')
-      .eq('type', 'refund')
-      .eq('status', 'completed');
-    
-    if (error) throw error;
-    
-    const totalAmount = refundTransactions.reduce((sum, transaction) => {
-      return sum + (parseFloat(transaction.amount) || 0);
-    }, 0);
-    
-    // Group by month
-    const monthlyData: Record<string, number> = {};
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    
-    refundTransactions.forEach(transaction => {
-      const date = new Date(transaction.date);
-      const monthName = months[date.getMonth()];
-      
-      if (!monthlyData[monthName]) {
-        monthlyData[monthName] = 0;
-      }
-      
-      monthlyData[monthName] += parseFloat(transaction.amount) || 0;
-    });
-    
-    const byMonth = Object.keys(monthlyData).map(month => ({
-      name: month,
-      amount: monthlyData[month]
-    })).sort((a, b) => months.indexOf(a.name) - months.indexOf(b.name));
-    
-    // Count most refunded services
-    const serviceRefunds: Record<string, number> = {};
-    
-    refundTransactions.forEach(transaction => {
-      const description = transaction.description || '';
-      const serviceName = description.includes(':')
-        ? description.split(':')[1].trim()
-        : 'Unknown';
-      
-      if (!serviceRefunds[serviceName]) {
-        serviceRefunds[serviceName] = 0;
-      }
-      
-      serviceRefunds[serviceName]++;
-    });
-    
-    const mostRefundedServices = Object.keys(serviceRefunds)
-      .map(service => ({
-        name: service,
-        count: serviceRefunds[service]
-      }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
-    
-    return {
-      totalRefunds: refundTransactions.length,
-      totalAmount,
-      byMonth,
-      mostRefundedServices
-    };
-  } catch (error) {
-    console.error('Error fetching refund analytics:', error);
-    return {
-      totalRefunds: 0,
-      totalAmount: 0,
-      byMonth: [],
-      mostRefundedServices: []
-    };
-  }
-};
-
-// Helper functions
-const mapTicketStatusToRefundStatus = (ticketStatus: string): RefundStatus => {
-  switch (ticketStatus) {
-    case 'open':
-      return 'pending';
-    case 'in_progress':
-      return 'approved';
-    case 'resolved':
-      return 'completed';
-    case 'closed':
-      return 'denied';
-    default:
-      return 'pending';
-  }
-};
-
-const mapRefundStatusToTicketStatus = (refundStatus: RefundStatus): string => {
-  switch (refundStatus) {
-    case 'pending':
-      return 'open';
-    case 'approved':
-      return 'in_progress';
-    case 'completed':
-      return 'resolved';
-    case 'denied':
-      return 'closed';
-    default:
-      return 'open';
+    console.error('Error creating refund request:', error);
+    toast.error('Failed to submit refund request');
+    throw error;
   }
 };

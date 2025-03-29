@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -26,8 +27,6 @@ const ServiceSelectionCard: React.FC<ServiceSelectionCardProps> = ({
   onRemove,
 }) => {
   const { currentUser } = useAuth();
-  // Remove or comment out the updateUser reference since it doesn't exist
-  // const { currentUser, updateUser } = useAuth();
 
   const handleToggleService = async () => {
     if (!currentUser) return;
@@ -35,7 +34,7 @@ const ServiceSelectionCard: React.FC<ServiceSelectionCardProps> = ({
     try {
       if (isSelected) {
         // Remove service
-        const updatedServices = currentUser.selectedServices.filter(s => s !== service.name);
+        const updatedServices = (currentUser.selectedServices || []).filter(s => s !== service.name);
         
         // Update directly with Supabase instead of using updateUser
         const { error } = await supabase

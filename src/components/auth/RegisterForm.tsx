@@ -1,3 +1,4 @@
+
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -13,10 +14,10 @@ import { useToast } from '@/components/ui/use-toast';
 import { signUp } from '@/integrations/supabase/auth';
 import { cn } from '@/lib/utils';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { useNavigate } from 'react-router-dom';
 
 const formSchema = z.object({
   name: z.string().min(2, {
@@ -35,8 +36,9 @@ interface RegisterFormProps extends React.HTMLAttributes<HTMLDivElement> {}
 const RegisterForm: React.FC<RegisterFormProps> = ({ className, ...props }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const router = useRouter();
+  const navigate = useNavigate();
   const { toast } = useToast();
+  
   const {
     register,
     handleSubmit,
@@ -50,16 +52,19 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ className, ...props }) => {
     setError('');
     
     try {
-      // Update this call to remove the role parameter or add it to the function signature
       const result = await signUp(values.email, values.password, values.name);
       
       if (result.error) {
         setError(result.error);
       } else {
-        router('/login');
-        toast.success('Registration successful! Please check your email to verify your account.');
+        navigate('/login');
+        toast({
+          title: "Registration successful!",
+          description: "Please check your email to verify your account.",
+          variant: "default",
+        });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Registration error:', error);
       setError('An unexpected error occurred during registration.');
     } finally {
